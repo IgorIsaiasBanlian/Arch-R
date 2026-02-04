@@ -1,0 +1,13 @@
+# Build output
+output/
+rootfs/staging/
+*.log
+
+# Archives
+*.tar.gz
+*.xz
+*.img
+
+# Kernel source (will be cloned separately)
+kernel/src/
+bootloader/src/

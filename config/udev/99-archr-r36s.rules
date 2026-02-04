@@ -1,0 +1,38 @@
+# Arch R - R36S udev Rules for USB OTG and Wi-Fi
+
+#---------------------------------------------------------------------------
+# AIC8800 Wi-Fi USB Modeswitch
+# The adapter appears first as a CD-ROM/storage device (a69c:5721)
+# and needs to be ejected to switch to Wi-Fi mode (a69c:8801)
+#---------------------------------------------------------------------------
+
+# Primary CD-ROM mode - trigger eject to switch to Wi-Fi
+SUBSYSTEM=="block", ATTRS{idVendor}=="a69c", ATTRS{idProduct}=="5721", RUN+="/usr/bin/eject %k"
+SUBSYSTEM=="usb", ATTR{idVendor}=="a69c", ATTR{idProduct}=="5721", RUN+="/usr/bin/eject /dev/%k"
+
+# Alternative VIDs that might appear
+SUBSYSTEM=="block", ATTRS{idVendor}=="2604", ATTRS{idProduct}=="0012", RUN+="/usr/bin/eject %k"
+SUBSYSTEM=="block", ATTRS{idVendor}=="2604", ATTRS{idProduct}=="0013", RUN+="/usr/bin/eject %k"
+
+#---------------------------------------------------------------------------
+# AIC8800 Wi-Fi Mode (after modeswitch)
+# These are the IDs when the device is in Wi-Fi mode
+#---------------------------------------------------------------------------
+
+# Set permissions for Wi-Fi device
+SUBSYSTEM=="usb", ATTR{idVendor}=="a69c", ATTR{idProduct}=="8801", MODE="0666"
+SUBSYSTEM=="usb", ATTR{idVendor}=="2604", ATTR{idProduct}=="0013", MODE="0666"
+
+#---------------------------------------------------------------------------
+# R36S Controller/Joystick
+#---------------------------------------------------------------------------
+
+# ADC-based analog sticks
+SUBSYSTEM=="input", ATTRS{name}=="adc-joystick", MODE="0666", ENV{ID_INPUT_JOYSTICK}="1"
+
+# GPIO buttons (D-pad, face buttons)
+SUBSYSTEM=="input", ATTRS{name}=="gpio-keys", MODE="0666", ENV{ID_INPUT_JOYSTICK}="1"
+
+# R36S specific controller names
+SUBSYSTEM=="input", ATTRS{name}=="*OdroidGoa*", MODE="0666", ENV{ID_INPUT_JOYSTICK}="1"
+SUBSYSTEM=="input", ATTRS{name}=="*R36S*", MODE="0666", ENV{ID_INPUT_JOYSTICK}="1"
