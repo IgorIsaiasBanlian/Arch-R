@@ -7,7 +7,26 @@ rootfs/staging/
 *.tar.gz
 *.xz
 *.img
+# Exception: U-Boot binaries are needed
+!bootloader/u-boot-r36s-working/*.img
 
 # Kernel source (will be cloned separately)
 kernel/src/
 bootloader/src/
+
+# Build cache (cloned repos, large)
+.cache/
+
+# Debug library copies (pulled from device for analysis)
+/lib*.so*
+
+# Debug logs in root
+/es-log*.txt
+/log.txt
+
+# One-off fix scripts (already integrated into build)
+/apply-fix-round4.sh
+/fix-sd-issues.sh
+
+# Stale kernel config in root
+/.config

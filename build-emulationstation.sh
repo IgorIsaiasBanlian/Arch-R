@@ -16,6 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUTPUT_DIR="$SCRIPT_DIR/output"
 ROOTFS_DIR="$OUTPUT_DIR/rootfs"
 CACHE_DIR="$SCRIPT_DIR/.cache"
+GL4ES_DIR="$OUTPUT_DIR/gl4es"
 
 # EmulationStation source
 ES_REPO="https://github.com/christianhaitian/EmulationStation-fcamod.git"
@@ -58,10 +59,11 @@ if [ -d "$ES_CACHE/.git" ]; then
     git fetch origin
     git checkout "$ES_BRANCH"
     git reset --hard "origin/$ES_BRANCH"
+    git submodule update --init --recursive
     cd "$SCRIPT_DIR"
 else
     log "  Cloning EmulationStation-fcamod..."
-    git clone --depth 1 -b "$ES_BRANCH" "$ES_REPO" "$ES_CACHE"
+    git clone --depth 1 --recurse-submodules -b "$ES_BRANCH" "$ES_REPO" "$ES_CACHE"
 fi
 
 log "  ✓ Source ready"
@@ -77,6 +79,34 @@ rm -rf "$BUILD_DIR"
 cp -a "$ES_CACHE" "$BUILD_DIR"
 
 log "  ✓ Source copied to rootfs"
+
+#------------------------------------------------------------------------------
+# Step 2b: Install gl4es into rootfs
+#------------------------------------------------------------------------------
+log ""
+log "Step 2b: Installing gl4es (Desktop GL → GLES 2.0 translation)..."
+
+if [ ! -f "$GL4ES_DIR/libGL.so.1" ]; then
+    error "gl4es not found at $GL4ES_DIR. Cross-compile it first!"
+fi
+
+# gl4es libraries
+install -d "$ROOTFS_DIR/usr/lib/gl4es"
+install -m 755 "$GL4ES_DIR/libGL.so.1" "$ROOTFS_DIR/usr/lib/gl4es/"
+ln -sf libGL.so.1 "$ROOTFS_DIR/usr/lib/gl4es/libGL.so"
+install -m 755 "$GL4ES_DIR/libEGL.so.1" "$ROOTFS_DIR/usr/lib/gl4es/"
+ln -sf libEGL.so.1 "$ROOTFS_DIR/usr/lib/gl4es/libEGL.so"
+
+# System-level symlinks so cmake FindOpenGL resolves to gl4es
+ln -sf gl4es/libGL.so.1 "$ROOTFS_DIR/usr/lib/libGL.so.1"
+ln -sf gl4es/libGL.so.1 "$ROOTFS_DIR/usr/lib/libGL.so"
+
+# Desktop GL headers from gl4es (for compilation)
+install -d "$ROOTFS_DIR/usr/include/GL"
+install -m 644 "$GL4ES_DIR/include/GL/gl.h" "$ROOTFS_DIR/usr/include/GL/"
+install -m 644 "$GL4ES_DIR/include/GL/glext.h" "$ROOTFS_DIR/usr/include/GL/"
+
+log "  ✓ gl4es installed (libGL.so.1 + libEGL.so.1 + GL headers)"
 
 #------------------------------------------------------------------------------
 # Step 3: Setup chroot
@@ -111,16 +141,24 @@ cat > "$ROOTFS_DIR/tmp/build-es.sh" << 'BUILD_EOF'
 #!/bin/bash
 set -e
 
+# Disable pacman Landlock sandbox (fails in QEMU chroot)
+pacman() { command pacman --disable-sandbox "$@"; }
+
 echo "=== ES Build: Installing dependencies ==="
 
-# Build dependencies
+# Build dependencies (freeimage excluded — built from source below)
+# Install base-devel group first (needs separate call for group confirmation)
+pacman -S --noconfirm --needed base-devel
+
+# Then install specific build dependencies
 pacman -S --noconfirm --needed \
-    base-devel \
+    make \
+    gcc \
     cmake \
     git \
+    unzip \
     sdl2 \
     sdl2_mixer \
-    freeimage \
     freetype2 \
     curl \
     rapidjson \
@@ -131,22 +169,154 @@ pacman -S --noconfirm --needed \
     libdrm \
     mesa
 
-# Mali GPU driver (provides EGL + GLES2 for RK3326/Mali-G31)
-pacman -S --noconfirm --needed \
-    mali-bifrost-g31-libgl-gbm \
-    || echo "mali-bifrost-g31-libgl-gbm not available, will use mesa"
+# GPU: Mesa Panfrost (EGL + GLES 2.0+ + GBM for RK3326/Mali-G31)
+# gl4es (pre-installed in Step 2b) provides Desktop GL → GLES 2.0 translation
+# Mesa provides: libEGL.so, libGLESv2.so (used by gl4es as backend)
 
-echo "=== ES Build: Compiling ==="
+# Build FreeImage from source (not available in ALARM aarch64 repos)
+if ! pacman -Q freeimage &>/dev/null; then
+    echo "=== Building FreeImage from source ==="
+    cd /tmp
+    rm -rf FreeImage FreeImage3180.zip
+    curl -L -o FreeImage3180.zip \
+        "https://downloads.sourceforge.net/project/freeimage/Source%20Distribution/3.18.0/FreeImage3180.zip"
+    unzip -oq FreeImage3180.zip
+    cd FreeImage
+    # Patch Makefile for modern GCC compatibility (FreeImage 3.18.0 is old):
+    # - C++14: bundled OpenEXR uses throw() specs removed in C++17
+    # - unistd.h: bundled ZLib uses lseek/read/write/close without including it
+    # - Wno flags: suppress implicit-function-declaration errors in bundled libs
+    cat >> Makefile.gnu << 'MKPATCH'
+override CFLAGS += -include unistd.h -Wno-implicit-function-declaration -Wno-int-conversion -DPNG_ARM_NEON_OPT=0
+override CXXFLAGS += -std=c++14 -include unistd.h -DPNG_ARM_NEON_OPT=0
+MKPATCH
+    make -j$(nproc)
+    make install
+    ldconfig
+    cd /tmp && rm -rf FreeImage FreeImage3180.zip
+    echo "  FreeImage built and installed"
+fi
+
+echo "=== ES Build: Rebuilding SDL3 with KMSDRM support ==="
+
+# CRITICAL: ALARM's SDL3 package is built WITHOUT KMSDRM video backend.
+# Without KMSDRM, SDL can only use x11/wayland/offscreen/dummy — none work
+# on our console-only RK3326. We need to rebuild SDL3 with -DSDL_KMSDRM=ON.
+# sdl2-compat (provides libSDL2) wraps SDL3, so it gains KMSDRM automatically.
+
+if ! grep -ao 'kmsdrm' /usr/lib/libSDL3.so* 2>/dev/null | grep -qi kmsdrm; then
+    echo "  SDL3 missing KMSDRM support — rebuilding from source..."
+    pacman -S --noconfirm --needed cmake meson ninja pkgconf libdrm mesa
+
+    # Get the installed SDL3 version to build the matching release
+    SDL3_VER=$(pacman -Q sdl3 2>/dev/null | awk '{print $2}' | cut -d- -f1)
+    echo "  System SDL3 version: $SDL3_VER"
+
+    cd /tmp
+    rm -rf SDL3-kmsdrm-build
+
+    # Clone matching version (or latest release if version detection fails)
+    if [ -n "$SDL3_VER" ]; then
+        git clone --depth 1 -b "release-${SDL3_VER}" \
+            https://github.com/libsdl-org/SDL.git SDL3-kmsdrm-build 2>/dev/null \
+        || git clone --depth 1 https://github.com/libsdl-org/SDL.git SDL3-kmsdrm-build
+    else
+        git clone --depth 1 https://github.com/libsdl-org/SDL.git SDL3-kmsdrm-build
+    fi
+
+    cd SDL3-kmsdrm-build
+    cmake -B build \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DSDL_KMSDRM=ON \
+        -DSDL_KMSDRM_SHARED=OFF \
+        -DSDL_WAYLAND=OFF \
+        -DSDL_X11=OFF \
+        -DSDL_VULKAN=OFF \
+        -DSDL_PIPEWIRE=OFF \
+        -DSDL_PULSEAUDIO=OFF \
+        -DSDL_ALSA=ON \
+        -DSDL_TESTS=OFF \
+        -DSDL_INSTALL_TESTS=OFF
+
+    cmake --build build -j$(nproc)
+
+    # Only replace the shared library (keep headers/pkgconfig from package)
+    install -m755 build/libSDL3.so.0.* /usr/lib/
+    ldconfig
+
+    cd /tmp && rm -rf SDL3-kmsdrm-build
+
+    # Verify KMSDRM is now available
+    if grep -ao 'kmsdrm' /usr/lib/libSDL3.so* 2>/dev/null | grep -qi kmsdrm; then
+        echo "  SDL3 rebuilt with KMSDRM support — VERIFIED"
+    else
+        echo "  WARNING: SDL3 rebuild done but KMSDRM still not found!"
+    fi
+else
+    echo "  SDL3 already has KMSDRM support — skipping rebuild"
+fi
+
+echo "=== ES Build: Verifying gl4es ==="
+
+# gl4es (Desktop GL → GLES 2.0 translation) was pre-installed into the rootfs
+# by the host script (Step 2b). Verify it's in place.
+if [ ! -f /usr/lib/gl4es/libGL.so.1 ]; then
+    echo "ERROR: gl4es libGL.so.1 not found! Should be installed by host step."
+    exit 1
+fi
+if [ ! -f /usr/include/GL/gl.h ]; then
+    echo "ERROR: GL headers not found! Should be installed by host step."
+    exit 1
+fi
+echo "  gl4es: $(ls -la /usr/lib/gl4es/libGL.so.1)"
+echo "  GL headers: $(ls /usr/include/GL/gl.h)"
+echo "  System libGL symlink: $(ls -la /usr/lib/libGL.so)"
+echo "  ✓ gl4es verified"
+
+echo "=== ES Build: Patching Renderer_GL21.cpp for Mesa/Panfrost ==="
 
 cd /tmp/es-build
+
+# With gl4es, we use Renderer_GL21.cpp (Desktop OpenGL 2.1) instead of
+# Renderer_GLES10.cpp. gl4es translates Desktop GL → GLES 2.0 → Panfrost GPU.
+# Only 3 patches needed (vs 6 for GLES10):
+
+# Patch 1: Fix CONTEXT_MAJOR_VERSION bug in setupWindow().
+# Original code sets MAJOR_VERSION twice. Second should be MINOR_VERSION.
+# gl4es reports GL 2.1, so MAJOR=2, MINOR=1 is correct.
+sed -i 's/SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 1);/SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);/' \
+    es-core/src/renderers/Renderer_GL21.cpp
+
+# Patch 2: Null safety for glGetString in createContext().
+# If context creation fails, glGetString returns NULL.
+# std::string(NULL) throws std::logic_error → SIGABRT (exit 134).
+sed -i 's|std::string glExts = (const char\*)glGetString(GL_EXTENSIONS);|const char* extsPtr = (const char*)glGetString(GL_EXTENSIONS); std::string glExts = extsPtr ? extsPtr : "";|' \
+    es-core/src/renderers/Renderer_GL21.cpp
+
+# Patch 3: Re-establish GL context in setSwapInterval().
+# setIcon() (called between createContext and setSwapInterval in Renderer.cpp)
+# triggers sdl2-compat → SDL3 internal state changes that lose the EGL context.
+# Without this fix, ALL subsequent GL rendering fails silently → blank screen.
+sed -i '/\t\t\/\/ vsync/i\\t\t// Arch R: Re-establish GL context — setIcon() via sdl2-compat loses it\n\t\tSDL_GL_MakeCurrent(getSDLWindow(), sdlContext);' \
+    es-core/src/renderers/Renderer_GL21.cpp
+
+echo "  Patched Renderer_GL21.cpp (MAJOR/MINOR fix, null safety, GL context restore)"
+
+echo "=== ES Build: Compiling ==="
 
 # Clean previous build
 rm -rf CMakeCache.txt CMakeFiles
 
-# Configure — ES-fcamod auto-detects Mali/GLES
+# Configure — Desktop OpenGL mode via gl4es
+# -DGL=ON forces USE_OPENGL_21 → uses Renderer_GL21.cpp
+# cmake FindOpenGL resolves to gl4es's libGL.so (via symlinks set up in Step 2b)
+# Rendering pipeline: ES (GL 2.1) → gl4es → GLES 2.0 → Panfrost (Mali-G31)
 cmake . \
     -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_CXX_FLAGS="-O2 -march=armv8-a+crc -mtune=cortex-a35"
+    -DGL=ON \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+    -DCMAKE_CXX_FLAGS="-O2 -march=armv8-a+crc -mtune=cortex-a35 -include cstdint"
 
 # Build
 make -j$(nproc)
@@ -190,9 +360,9 @@ install -m 755 "$SCRIPT_DIR/scripts/emulationstation.sh" \
     "$ROOTFS_DIR/usr/bin/emulationstation/emulationstation.sh"
 log "  ✓ Launch script installed"
 
-# Enable ES service
-chroot "$ROOTFS_DIR" systemctl enable emulationstation 2>/dev/null || true
-log "  ✓ EmulationStation service enabled"
+# Note: ES auto-starts via autologin approach (getty@tty1 → .bash_profile → emulationstation.sh)
+# The archr-boot-setup.service and autologin are configured in build-rootfs.sh
+log "  ✓ ES will auto-start via tty1 autologin (configured in build-rootfs.sh)"
 
 #------------------------------------------------------------------------------
 # Step 6: Cleanup
@@ -207,8 +377,13 @@ rm -f "$ROOTFS_DIR/tmp/build-es.sh"
 # Remove build-only deps to save space
 cat > "$ROOTFS_DIR/tmp/cleanup-es.sh" << 'CLEAN_EOF'
 #!/bin/bash
-# Remove build-only packages (keep runtime deps)
-pacman -Rns --noconfirm cmake eigen 2>/dev/null || true
+pacman() { command pacman --disable-sandbox "$@"; }
+# Remove build-only packages (not needed at runtime)
+# KEEP gcc-libs (provides libstdc++.so — needed by everything C++)
+for pkg in cmake eigen gcc make binutils autoconf automake \
+           fakeroot patch bison flex m4 libtool texinfo; do
+    pacman -Rdd --noconfirm "$pkg" 2>/dev/null || true
+done
 pacman -Scc --noconfirm
 CLEAN_EOF
 chmod +x "$ROOTFS_DIR/tmp/cleanup-es.sh"
@@ -233,10 +408,14 @@ log "  ✓ Cleanup complete"
 log ""
 log "=== EmulationStation Build Complete ==="
 log ""
+log "Rendering: ES (Desktop GL 2.1) → gl4es → GLES 2.0 → Panfrost (Mali-G31)"
+log ""
 log "Installed:"
-log "  /usr/bin/emulationstation/emulationstation  (binary)"
+log "  /usr/bin/emulationstation/emulationstation  (binary, -DGL=ON)"
 log "  /usr/bin/emulationstation/resources/         (themes/fonts)"
 log "  /usr/bin/emulationstation/emulationstation.sh (launch script)"
 log "  /usr/local/bin/emulationstation              (symlink)"
+log "  /usr/lib/gl4es/libGL.so.1                    (gl4es GL→GLES2 translation)"
+log "  /usr/lib/gl4es/libEGL.so.1                   (gl4es EGL wrapper)"
 log "  /etc/emulationstation/es_systems.cfg         (system config)"
 log ""

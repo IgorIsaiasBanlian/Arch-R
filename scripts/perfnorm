@@ -1,5 +1,10 @@
 #!/bin/bash
-# Arch R - Set normal performance (power saving)
-echo ondemand > /sys/devices/system/cpu/cpufreq/policy0/scaling_governor 2>/dev/null
-echo simple_ondemand > /sys/devices/platform/ff400000.gpu/devfreq/ff400000.gpu/governor 2>/dev/null
-echo dmc_ondemand > /sys/devices/platform/dmc/devfreq/dmc/governor 2>/dev/null
+# Arch R - Normal Governor (Balanced)
+# Sets CPU, GPU, and DMC to ondemand/balanced governors
+# Based on dArkOS perfnorm for RK3326
+
+gpu="ff400000"
+
+echo simple_ondemand > /sys/devices/platform/${gpu}.gpu/devfreq/${gpu}.gpu/governor
+echo ondemand > /sys/devices/system/cpu/cpufreq/policy0/scaling_governor
+echo dmc_ondemand > /sys/devices/platform/dmc/devfreq/dmc/governor

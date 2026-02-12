@@ -90,11 +90,28 @@ make -C "$KERNEL_SRC" ARCH=$ARCH CROSS_COMPILE=$CROSS_COMPILE $DEFCONFIG
 log "  Base: $DEFCONFIG"
 
 # Merge R36S-specific config fragment
+# IMPORTANT: merge_config.sh writes output to .config in the CURRENT directory,
+# NOT to the base config path. Must run from kernel source dir.
 if [ -f "$CONFIG_FRAGMENT" ]; then
-    "$KERNEL_SRC/scripts/kconfig/merge_config.sh" \
-        -m "$KERNEL_SRC/.config" "$CONFIG_FRAGMENT" 2>&1 | \
+    pushd "$KERNEL_SRC" > /dev/null
+    scripts/kconfig/merge_config.sh \
+        -m .config "$CONFIG_FRAGMENT" 2>&1 | \
         grep -E "(^#|Value)" | head -20 || true
+    popd > /dev/null
     make -C "$KERNEL_SRC" ARCH=$ARCH CROSS_COMPILE=$CROSS_COMPILE olddefconfig
+    # Verify critical GPU config was applied
+    if grep -q "CONFIG_DRM_PANFROST=y" "$KERNEL_SRC/.config"; then
+        log "  Panfrost GPU: ENABLED (built-in)"
+    elif grep -q "CONFIG_DRM_PANFROST=m" "$KERNEL_SRC/.config"; then
+        log "  Panfrost GPU: ENABLED (module)"
+    else
+        warn "  Panfrost GPU: NOT ENABLED — check config fragment!"
+    fi
+    if grep -q "CONFIG_MALI_MIDGARD=y" "$KERNEL_SRC/.config"; then
+        warn "  Mali Midgard: STILL ENABLED (conflict with Panfrost!)"
+    else
+        log "  Mali Midgard: disabled (good)"
+    fi
     log "  Merged: $(basename "$CONFIG_FRAGMENT")"
 else
     warn "Config fragment not found: $CONFIG_FRAGMENT"
@@ -161,14 +178,26 @@ log "  Copied: Image"
 cp "$KERNEL_SRC/arch/arm64/boot/dts/rockchip/${R36S_DTB}.dtb" "$BOOT_DIR/"
 log "  Copied: ${R36S_DTB}.dtb"
 
-# Install modules
+# Install modules (use pipefail to catch errors masked by tail)
+set -o pipefail
 make -C "$KERNEL_SRC" ARCH=$ARCH CROSS_COMPILE=$CROSS_COMPILE \
     INSTALL_MOD_PATH="$MODULES_DIR" \
     modules_install 2>&1 | tail -5
+set +o pipefail
 
 # Remove symlinks (save space)
 rm -f "$MODULES_DIR/lib/modules/"*/source 2>/dev/null || true
 rm -f "$MODULES_DIR/lib/modules/"*/build 2>/dev/null || true
+
+# Verify critical module was installed
+KERNEL_FULL=$(make -C "$KERNEL_SRC" -s kernelversion 2>/dev/null)
+KREL=$(cat "$KERNEL_SRC/include/config/kernel.release" 2>/dev/null || echo "$KERNEL_FULL")
+if find "$MODULES_DIR/lib/modules/$KREL" -name 'panfrost.ko*' 2>/dev/null | grep -q .; then
+    log "  Panfrost module: INSTALLED"
+else
+    warn "  Panfrost module: NOT FOUND in $MODULES_DIR/lib/modules/$KREL/"
+    warn "  Check directory permissions (must be writable by build user)"
+fi
 
 log "  Modules installed"
 

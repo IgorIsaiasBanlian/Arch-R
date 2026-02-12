@@ -105,11 +105,24 @@ cp /etc/resolv.conf "$ROOTFS_DIR/etc/resolv.conf"
 
 log "  ✓ Chroot environment ready"
 
-# Disable pacman Landlock sandbox (fails inside QEMU chroot)
-if ! grep -q 'DisableSandbox' "$ROOTFS_DIR/etc/pacman.conf"; then
-    sed -i '/^\[options\]/a DisableSandbox' "$ROOTFS_DIR/etc/pacman.conf"
-    log "  ✓ Pacman sandbox disabled (QEMU chroot compatibility)"
-fi
+# Fix pacman for QEMU chroot environment
+# - Disable CheckSpace (mount point detection fails in chroot)
+sed -i 's/^CheckSpace/#CheckSpace/' "$ROOTFS_DIR/etc/pacman.conf"
+log "  ✓ Pacman CheckSpace disabled (QEMU chroot compatibility)"
+
+# Add multiple fallback mirrors (default mirror often has stale/404 packages)
+cat > "$ROOTFS_DIR/etc/pacman.d/mirrorlist" << 'MIRRORS_EOF'
+# Arch Linux ARM mirrors - multiple fallbacks for reliability
+Server = http://de.mirror.archlinuxarm.org/$arch/$repo
+Server = http://eu.mirror.archlinuxarm.org/$arch/$repo
+Server = http://dk.mirror.archlinuxarm.org/$arch/$repo
+Server = http://de3.mirror.archlinuxarm.org/$arch/$repo
+Server = http://hu.mirror.archlinuxarm.org/$arch/$repo
+Server = http://mirror.archlinuxarm.org/$arch/$repo
+Server = http://fl.us.mirror.archlinuxarm.org/$arch/$repo
+Server = http://nj.us.mirror.archlinuxarm.org/$arch/$repo
+MIRRORS_EOF
+log "  ✓ Multiple ALARM mirrors configured (fallback for 404s)"
 
 #------------------------------------------------------------------------------
 # Step 4: Configure System
@@ -124,12 +137,17 @@ set -e
 
 echo "=== Inside chroot ==="
 
+# Disable pacman Landlock sandbox (fails in QEMU chroot)
+# Shell function wraps all pacman calls with --disable-sandbox
+pacman() { command pacman --disable-sandbox "$@"; }
+echo "  Pacman sandbox disabled (--disable-sandbox wrapper)"
+
 # Initialize pacman keyring
 pacman-key --init
 pacman-key --populate archlinuxarm
 
-# Update system
-pacman -Syu --noconfirm
+# Full system upgrade — multiple mirrors configured for 404 fallback
+pacman -Syu --noconfirm --disable-download-timeout
 
 # Install essential packages
 pacman -S --noconfirm --needed \
@@ -166,31 +184,28 @@ pacman -S --noconfirm --needed \
     sdl2_ttf
 
 # Gaming stack dependencies
+# Note: freeimage is not in ALARM repos — installed in build-emulationstation.sh
 pacman -S --noconfirm --needed \
     retroarch \
     libretro-core-info \
-    freeimage \
     freetype2 \
     libglvnd \
     curl \
     unzip \
     p7zip \
-    evtest
+    evtest \
+    brightnessctl \
+    python-evdev
 
-# LibRetro cores (available in Arch Linux ARM aarch64 repos)
-pacman -S --noconfirm --needed \
-    libretro-snes9x \
-    libretro-gambatte \
-    libretro-mgba \
-    libretro-genesis-plus-gx \
-    libretro-pcsx-rearmed \
-    libretro-flycast \
-    libretro-beetle-pce-fast \
-    libretro-scummvm \
-    libretro-melonds \
-    libretro-nestopia \
-    libretro-picodrive \
-    || echo "Some libretro packages may not be available, continuing..."
+# LibRetro cores — install each individually (some may not exist in ALARM)
+for core in libretro-snes9x libretro-gambatte libretro-mgba \
+            libretro-genesis-plus-gx libretro-pcsx-rearmed libretro-flycast \
+            libretro-beetle-pce-fast libretro-scummvm libretro-melonds \
+            libretro-nestopia libretro-picodrive; do
+    pacman -S --noconfirm --needed "$core" 2>/dev/null \
+        && echo "  Installed: $core" \
+        || echo "  Not available: $core (will use pre-compiled)"
+done
 
 # Download pre-compiled cores for those not in pacman repos
 # Source: christianhaitian/retroarch-cores (optimized for ARM devices)
@@ -220,7 +235,7 @@ systemctl disable remote-fs.target 2>/dev/null || true
 
 # Create gaming user 'archr'
 if ! id archr &>/dev/null; then
-    useradd -m -G wheel,audio,video,input -s /bin/bash archr
+    useradd -m -G wheel,audio,video,render,input -s /bin/bash archr
     echo "archr:archr" | chpasswd
 fi
 
@@ -257,7 +272,7 @@ After=multi-user.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/bin/bash -c 'modprobe zram && echo lz4 > /sys/block/zram0/comp_algorithm && echo 256M > /sys/block/zram0/disksize && mkswap /dev/zram0 && swapon -p 100 /dev/zram0'
+ExecStart=/bin/bash -c 'modprobe zram && echo lzo > /sys/block/zram0/comp_algorithm && echo 268435456 > /sys/block/zram0/disksize && mkswap /dev/zram0 && swapon -p 100 /dev/zram0'
 ExecStop=/bin/bash -c 'swapoff /dev/zram0 && echo 1 > /sys/block/zram0/reset'
 
 [Install]
@@ -277,7 +292,7 @@ chown -R archr:archr /home/archr
 # Add ROMS partition to fstab (firstboot creates the partition)
 if ! grep -q '/roms' /etc/fstab; then
     echo '# ROMS partition (created by firstboot)'  >> /etc/fstab
-    echo '/dev/mmcblk1p3  /roms  vfat  defaults,utf8,noatime,nofail  0  0' >> /etc/fstab
+    echo '/dev/mmcblk1p3  /roms  vfat  defaults,utf8,noatime,nofail,x-systemd.device-timeout=5s  0  0' >> /etc/fstab
 fi
 
 # Firstboot service
@@ -298,28 +313,38 @@ FB_EOF
 
 systemctl enable firstboot
 
-# EmulationStation service (auto-start gaming frontend)
-cat > /etc/systemd/system/emulationstation.service << 'ES_EOF'
+# EmulationStation launch — via autologin + .bash_profile (proven dArkOS approach)
+# NOT a systemd service! ES needs a real VT session for KMSDRM DRM master access.
+# Flow: getty@tty1 autologin → archr shell → .bash_profile → emulationstation.sh
+# The autologin override is created above (getty@tty1.service.d/autologin.conf)
+
+# Boot-time setup service (runs as root before ES: governors + DRM permissions)
+cat > /etc/systemd/system/archr-boot-setup.service << 'SETUP_EOF'
 [Unit]
-Description=EmulationStation-fcamod Gaming Frontend
-After=multi-user.target firstboot.service
-Wants=firstboot.service
+Description=Arch R Boot Setup (governors + DRM permissions)
+After=systemd-modules-load.service
+Before=multi-user.target
 
 [Service]
-Type=simple
-User=archr
-WorkingDirectory=/home/archr
-ExecStart=/usr/bin/emulationstation/emulationstation.sh
-Environment="SDL_VIDEO_EGL_DRIVER=libEGL.so"
-Restart=on-failure
-RestartSec=3
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/bash -c 'chmod 666 /dev/dri/* 2>/dev/null; echo performance > /sys/devices/system/cpu/cpufreq/policy0/scaling_governor 2>/dev/null; echo performance > /sys/devices/platform/ff400000.gpu/devfreq/ff400000.gpu/governor 2>/dev/null; echo dmc_ondemand > /sys/devices/platform/dmc/devfreq/dmc/governor 2>/dev/null; true'
 
 [Install]
 WantedBy=multi-user.target
-ES_EOF
+SETUP_EOF
 
-# Don't enable ES yet — build-emulationstation.sh enables it after building
-# systemctl enable emulationstation
+systemctl enable archr-boot-setup
+
+# .bash_profile for archr — launches EmulationStation on tty1 only
+cat > /home/archr/.bash_profile << 'PROFILE_EOF'
+# Arch R: Auto-launch EmulationStation on tty1
+# SSH and serial sessions (tty2+) get a normal shell
+if [ "$(tty)" = "/dev/tty1" ]; then
+    exec /usr/bin/emulationstation/emulationstation.sh
+fi
+PROFILE_EOF
+chown archr:archr /home/archr/.bash_profile
 
 # Boot splash service (very early — shows splash on fb0 before anything else)
 cat > /etc/systemd/system/splash.service << 'SPLASH_EOF'
@@ -342,6 +367,59 @@ WantedBy=sysinit.target
 SPLASH_EOF
 
 systemctl enable splash
+
+# Battery LED warning service
+cat > /etc/systemd/system/battery-led.service << 'BATT_EOF'
+[Unit]
+Description=Arch R Battery LED Warning
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/batt_life_warning.py
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
+BATT_EOF
+
+systemctl enable battery-led
+
+# Hotkey daemon (volume/brightness — replaces dArkOS ogage)
+cat > /etc/systemd/system/archr-hotkeys.service << 'HK_EOF'
+[Unit]
+Description=Arch R Hotkey Daemon (volume/brightness)
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/archr-hotkeys.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+HK_EOF
+
+systemctl enable archr-hotkeys
+
+# Sudoers for perfmax/perfnorm (allow archr to run without password)
+echo "archr ALL=(ALL) NOPASSWD: /usr/local/bin/perfmax, /usr/local/bin/perfnorm" > /etc/sudoers.d/archr-perf
+chmod 440 /etc/sudoers.d/archr-perf
+
+# Allow archr to use negative nice values (needed for nice -n -19 in ES launch commands)
+echo "archr  -  nice  -20" >> /etc/security/limits.conf
+
+# Distro version info
+cat > /etc/archr-release << 'VER_EOF'
+NAME="Arch R"
+VERSION="1.0"
+ID=archr
+ID_LIKE=arch
+BUILD_DATE="$(date +%Y-%m-%d)"
+VARIANT="R36S"
+VER_EOF
 
 # Auto-login on tty1 (fallback if ES not installed)
 mkdir -p /etc/systemd/system/getty@tty1.service.d
@@ -375,6 +453,14 @@ echo "=== System Optimization ==="
 # NOTE: bluetooth, wifi, rfkill are left enabled — user decides what to use
 systemctl disable lvm2-monitor 2>/dev/null || true
 systemctl mask lvm2-lvmpolld.service lvm2-lvmpolld.socket 2>/dev/null || true
+
+# Disable Mali blob from ld.so.conf — use Mesa Panfrost instead
+# Mali's old libgbm.so (2020) is incompatible with modern SDL3/sdl2-compat
+# Mali libs stay in /usr/lib/mali-egl/ for manual use if needed
+if [ -f /etc/ld.so.conf.d/mali.conf ]; then
+    mv /etc/ld.so.conf.d/mali.conf /etc/ld.so.conf.d/mali.conf.disabled
+    ldconfig
+fi
 
 # Reduce kernel messages on console
 echo 'kernel.printk = 3 3 3 3' >> /etc/sysctl.d/99-archr.conf
@@ -442,6 +528,16 @@ install -m 755 "$SCRIPT_DIR/scripts/perfmax" "$ROOTFS_DIR/usr/local/bin/perfmax"
 install -m 755 "$SCRIPT_DIR/scripts/perfnorm" "$ROOTFS_DIR/usr/local/bin/perfnorm"
 log "  ✓ Performance scripts installed"
 
+# ES info bar scripts (called by ES-fcamod for status display)
+install -m 755 "$SCRIPT_DIR/scripts/current_volume" "$ROOTFS_DIR/usr/local/bin/current_volume"
+install -m 755 "$SCRIPT_DIR/scripts/current_brightness" "$ROOTFS_DIR/usr/local/bin/current_brightness"
+log "  ✓ ES info bar scripts installed (current_volume, current_brightness)"
+
+# Distro version for ES info bar (ES reads title= from this file)
+mkdir -p "$ROOTFS_DIR/usr/share/plymouth/themes"
+echo "title=Arch R v1.0 ($(date +%Y-%m-%d))" > "$ROOTFS_DIR/usr/share/plymouth/themes/text.plymouth"
+log "  ✓ Distro version installed (text.plymouth)"
+
 # Splash screen script
 install -m 755 "$SCRIPT_DIR/scripts/splash-show.sh" "$ROOTFS_DIR/usr/local/bin/splash-show.sh"
 log "  ✓ Splash script installed"
@@ -450,17 +546,40 @@ log "  ✓ Splash script installed"
 install -m 755 "$SCRIPT_DIR/scripts/first-boot.sh" "$ROOTFS_DIR/usr/local/bin/first-boot.sh"
 log "  ✓ First boot script installed"
 
-# RetroArch config
-mkdir -p "$ROOTFS_DIR/etc/archr"
-cp "$SCRIPT_DIR/config/retroarch.cfg" "$ROOTFS_DIR/etc/archr/retroarch.cfg"
+# RetroArch config (install to user's config dir where retroarch expects it)
+mkdir -p "$ROOTFS_DIR/home/archr/.config/retroarch"
+cp "$SCRIPT_DIR/config/retroarch.cfg" "$ROOTFS_DIR/home/archr/.config/retroarch/retroarch.cfg"
 log "  ✓ RetroArch config installed"
 
-# EmulationStation config (if exists)
+# Archr system config directory
+mkdir -p "$ROOTFS_DIR/etc/archr"
+
+# SDL GameController DB for R36S (gpio-keys + adc-joystick)
+cp "$SCRIPT_DIR/config/gamecontrollerdb.txt" "$ROOTFS_DIR/etc/archr/gamecontrollerdb.txt"
+log "  ✓ GameController DB installed"
+
+# EmulationStation configs
+mkdir -p "$ROOTFS_DIR/etc/emulationstation"
 if [ -f "$SCRIPT_DIR/config/es_systems.cfg" ]; then
-    mkdir -p "$ROOTFS_DIR/etc/emulationstation"
     cp "$SCRIPT_DIR/config/es_systems.cfg" "$ROOTFS_DIR/etc/emulationstation/"
-    log "  ✓ EmulationStation config installed"
+    log "  ✓ ES systems config installed"
 fi
+if [ -f "$SCRIPT_DIR/config/es_input.cfg" ]; then
+    cp "$SCRIPT_DIR/config/es_input.cfg" "$ROOTFS_DIR/etc/emulationstation/"
+    log "  ✓ ES input config installed (gpio-keys + adc-joystick)"
+fi
+
+# Battery LED warning script
+install -m 755 "$SCRIPT_DIR/scripts/batt_life_warning.py" "$ROOTFS_DIR/usr/local/bin/batt_life_warning.py"
+log "  ✓ Battery LED script installed"
+
+# Hotkey daemon (volume/brightness control)
+install -m 755 "$SCRIPT_DIR/scripts/archr-hotkeys.py" "$ROOTFS_DIR/usr/local/bin/archr-hotkeys.py"
+log "  ✓ Hotkey daemon installed"
+
+# Fix ownership of archr home directory (files installed by root in Step 5)
+chown -R 1001:1001 "$ROOTFS_DIR/home/archr"
+log "  ✓ archr home ownership fixed (UID 1001)"
 
 #------------------------------------------------------------------------------
 # Step 6: Install Kernel and Modules
@@ -488,6 +607,18 @@ fi
 if [ -d "$KERNEL_MODULES" ]; then
     cp -r "$KERNEL_MODULES"/* "$ROOTFS_DIR/lib/modules/"
     log "  ✓ Kernel modules installed"
+
+    # Fix kernel version / modules directory mismatch (-dirty suffix)
+    # Kernel may report version with -dirty suffix but modules dir lacks it
+    for moddir in "$ROOTFS_DIR/lib/modules/"*; do
+        [ -d "$moddir" ] || continue
+        base=$(basename "$moddir")
+        dirty="${base}-dirty"
+        if [ ! -e "$ROOTFS_DIR/lib/modules/$dirty" ]; then
+            ln -sf "$base" "$ROOTFS_DIR/lib/modules/$dirty"
+            log "  ✓ Modules symlink: $dirty -> $base"
+        fi
+    done
 else
     warn "Kernel modules not found. Run build-kernel.sh first!"
 fi

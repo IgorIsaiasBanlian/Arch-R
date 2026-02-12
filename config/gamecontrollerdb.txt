@@ -1,0 +1,6 @@
+# Arch R - R36S Controller Mappings
+# Generated from kernel 6.6.89 DTS button/axis codes
+# gpio-keys: Digital buttons + DPAD (BTN_SOUTH..BTN_DPAD_RIGHT)
+1900bb07010000000100000000010000,R36S Gamepad,a:b1,b:b0,x:b3,y:b2,back:b8,start:b9,guide:b10,leftshoulder:b4,rightshoulder:b5,lefttrigger:b6,righttrigger:b7,leftstick:b11,rightstick:b12,dpup:b13,dpdown:b14,dpleft:b15,dpright:b16,platform:Linux,
+# adc-joystick: Analog sticks (ABS_X, ABS_Y, ABS_RX, ABS_RY)
+190011526164632d6a6f797374696300,R36S Analog Sticks,leftx:a0,lefty:a1,rightx:a2,righty:a3,platform:Linux,

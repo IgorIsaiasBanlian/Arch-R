@@ -35,9 +35,27 @@ ROMS_PART="${ROOT_DISK}p3"
 
 if ! lsblk "$ROMS_PART" &>/dev/null; then
     echo "Creating ROMS partition..."
-    echo ",,0c" | sfdisk --append "$ROOT_DISK" 2>/dev/null
+
+    # Get the end of the last partition (in sectors)
+    LAST_END=$(sfdisk -l "$ROOT_DISK" 2>/dev/null | awk '/^\/dev/ {end=$3} END {print end+1}')
+    DISK_SECTORS=$(sfdisk -l "$ROOT_DISK" 2>/dev/null | awk '/sectors$/ {print $7; exit}')
+
+    if [ -n "$LAST_END" ] && [ -n "$DISK_SECTORS" ] && [ "$LAST_END" -lt "$DISK_SECTORS" ]; then
+        echo "${LAST_END},+,0c" | sfdisk --append "$ROOT_DISK" 2>/dev/null || \
+        echo ",,0c" | sfdisk --append "$ROOT_DISK" 2>/dev/null || true
+    else
+        echo ",,0c" | sfdisk --append "$ROOT_DISK" 2>/dev/null || true
+    fi
+
     partprobe "$ROOT_DISK"
-    sleep 2
+    sleep 3
+
+    # Retry partprobe if device not yet visible
+    if ! lsblk "$ROMS_PART" &>/dev/null; then
+        sleep 2
+        partprobe "$ROOT_DISK"
+        sleep 2
+    fi
 
     if lsblk "$ROMS_PART" &>/dev/null; then
         echo "  Formatting as FAT32..."
@@ -45,9 +63,15 @@ if ! lsblk "$ROMS_PART" &>/dev/null; then
         echo "  ROMS partition created!"
     else
         echo "  WARNING: Failed to create ROMS partition"
+        echo "  You can create it manually: echo ',,0c' | sudo sfdisk --append $ROOT_DISK"
     fi
 else
     echo "  ROMS partition already exists"
+    # Ensure it has a filesystem
+    if ! blkid "$ROMS_PART" | grep -q vfat; then
+        echo "  Formatting existing partition as FAT32..."
+        mkfs.vfat -F 32 -n ROMS "$ROMS_PART"
+    fi
 fi
 
 #------------------------------------------------------------------------------

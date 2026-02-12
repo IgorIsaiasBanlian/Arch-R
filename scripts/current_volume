@@ -1,0 +1,26 @@
+#!/bin/bash
+# Arch R - Current volume level for ES info bar
+# Returns volume percentage string
+
+# Try Playback Path control (rk817 codec)
+vol=$(amixer sget 'Playback Path' 2>/dev/null | grep -o '\[.*%\]' | head -1 | tr -d '[]')
+if [ -n "$vol" ]; then
+    echo "$vol"
+    exit 0
+fi
+
+# Try Master control
+vol=$(amixer sget Master 2>/dev/null | awk -F'[][]' '/Left:/ { print $2 }')
+if [ -n "$vol" ]; then
+    echo "$vol"
+    exit 0
+fi
+
+# Try Playback control
+vol=$(amixer sget Playback 2>/dev/null | awk -F'[][]' '/Left:/ { print $2 }')
+if [ -n "$vol" ]; then
+    echo "$vol"
+    exit 0
+fi
+
+echo "N/A"

@@ -1,0 +1,13 @@
+#!/bin/bash
+# Arch R - Current brightness level for ES info bar
+# Returns brightness percentage
+
+curbright=$(cat /sys/class/backlight/backlight/brightness 2>/dev/null)
+maxbright=$(cat /sys/class/backlight/backlight/max_brightness 2>/dev/null)
+
+if [ -z "$curbright" ] || [ -z "$maxbright" ] || [ "$maxbright" -eq 0 ]; then
+    echo "N/A"
+    exit 0
+fi
+
+echo $((200 * curbright / maxbright - 100 * curbright / maxbright))

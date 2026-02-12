@@ -32,7 +32,7 @@ IMAGE_FILE="$IMAGE_DIR/$IMAGE_NAME"
 
 # Partition sizes (in MB)
 BOOT_SIZE=128        # Boot partition (FAT32)
-ROOTFS_SIZE=4096     # Root filesystem (ext4) - increased for full Arch
+ROOTFS_SIZE=6144     # Root filesystem (ext4) - 6GB for full Arch + gaming stack
 # ROMS partition will use remaining space on actual SD card
 
 # Total image size
@@ -60,6 +60,15 @@ fi
 
 if [ ! -f "$ROOTFS_DIR/boot/Image" ]; then
     warn "Kernel Image not found in rootfs. Make sure kernel is installed."
+else
+    # Validate kernel Image size (kernel 6.6 is ~41MB, stale 4.4 was ~12MB)
+    IMAGE_BYTES=$(stat -c%s "$ROOTFS_DIR/boot/Image")
+    if [ "$IMAGE_BYTES" -lt 20000000 ]; then
+        warn "Kernel Image is only $(($IMAGE_BYTES / 1024 / 1024))MB — expected ~41MB for kernel 6.6!"
+        warn "This may be a stale kernel 4.4 build. Run build-kernel.sh first."
+        error "Aborting: kernel Image too small (likely wrong version)"
+    fi
+    log "  Kernel Image: $(($IMAGE_BYTES / 1024 / 1024))MB (OK)"
 fi
 
 # Check required tools
@@ -92,9 +101,10 @@ log "  ✓ Created ${IMAGE_SIZE}MB image"
 log ""
 log "Step 2.5: Installing U-Boot bootloader..."
 
-# Search for U-Boot binaries in multiple locations
+# Search for U-Boot binaries — prefer R36S-u-boot-builder (known working)
 UBOOT_DIR=""
-for dir in "$OUTPUT_DIR/bootloader" \
+for dir in "$SCRIPT_DIR/bootloader/u-boot-r36s-working" \
+           "$OUTPUT_DIR/bootloader" \
            "$SCRIPT_DIR/bootloader/u-boot-rk3326/sd_fuse" \
            "$SCRIPT_DIR/bootloader/sd_fuse"; do
     if [ -f "$dir/idbloader.img" ] && [ -f "$dir/uboot.img" ] && [ -f "$dir/trust.img" ]; then
@@ -187,13 +197,18 @@ if [ -d "$ROOTFS_DIR/boot" ]; then
     cp "$ROOTFS_DIR/boot/"*.dtb "$MOUNT_BOOT/" 2>/dev/null || true
 fi
 
-# Copy U-Boot DTB (required for U-Boot to work)
-UBOOT_DTB="$SCRIPT_DIR/kernel/dts/R36S-DTB/R36S/Panel 0/rg351mp-kernel.dtb"
+# Copy U-Boot DTB (required for U-Boot display initialization)
+# Default: Panel 4 V22 — most common R36S panel
+UBOOT_DTB="$SCRIPT_DIR/kernel/dts/R36S-DTB/R36S/Panel 4 - V22/rg351mp-kernel.dtb"
+if [ ! -f "$UBOOT_DTB" ]; then
+    # Fallback to Panel 0 if Panel 4 V22 not available
+    UBOOT_DTB="$SCRIPT_DIR/kernel/dts/R36S-DTB/R36S/Panel 0/rg351mp-kernel.dtb"
+fi
 if [ -f "$UBOOT_DTB" ]; then
     cp "$UBOOT_DTB" "$MOUNT_BOOT/rg351mp-kernel.dtb"
-    log "  ✓ U-Boot DTB installed (rg351mp-kernel.dtb)"
+    log "  ✓ U-Boot DTB installed ($(basename "$(dirname "$UBOOT_DTB")")/rg351mp-kernel.dtb)"
 else
-    warn "U-Boot DTB not found! U-Boot may not initialize."
+    warn "U-Boot DTB not found! U-Boot may not initialize display."
 fi
 
 # Copy uInitrd if exists (optional — boot.ini has fallback)
@@ -212,13 +227,13 @@ else
     error "boot.ini not found at config/boot.ini!"
 fi
 
-# PanCho panel selection system
-PANCHO_SRC="$SCRIPT_DIR/../R36S-Multiboot/commonbootfiles/PanCho.ini"
+# PanCho panel selection system (Arch R extended — supports clones via L1)
+PANCHO_SRC="$SCRIPT_DIR/config/PanCho.ini"
 if [ -f "$PANCHO_SRC" ]; then
     cp "$PANCHO_SRC" "$MOUNT_BOOT/PanCho.ini"
-    log "  ✓ PanCho.ini installed (panel selection)"
+    log "  ✓ PanCho.ini installed (R36S + clone panels)"
 else
-    warn "PanCho.ini not found — panel selection will not work"
+    warn "PanCho.ini not found at config/PanCho.ini — panel selection will not work"
 fi
 
 # Panel DTBO overlays (ScreenFiles/)
@@ -268,6 +283,16 @@ if [ "$SPLASH_CONVERTED" = false ]; then
     warn "No splash images found (Arch-R.png / Arch-R-2.png)"
 fi
 
+# Create extlinux.conf (fallback boot method — works without boot.ini/PanCho)
+mkdir -p "$MOUNT_BOOT/extlinux"
+cat > "$MOUNT_BOOT/extlinux/extlinux.conf" << 'EXTLINUX_EOF'
+LABEL ArchR
+  LINUX /Image
+  FDT /rk3326-gameconsole-r36s.dtb
+  APPEND root=/dev/mmcblk1p2 rootwait rw console=tty3 fbcon=rotate:0 loglevel=0 quiet systemd.show_status=false vt.global_cursor_default=0
+EXTLINUX_EOF
+log "  ✓ extlinux.conf installed (fallback boot method)"
+
 # Create fstab (overrides rootfs fstab with correct entries)
 cat > "$MOUNT_ROOT/etc/fstab" << 'FSTAB_EOF'
 # Arch R fstab
@@ -275,7 +300,7 @@ cat > "$MOUNT_ROOT/etc/fstab" << 'FSTAB_EOF'
 LABEL=BOOT        /boot     vfat     defaults                               0      2
 LABEL=ROOTFS      /         ext4     defaults,noatime                       0      1
 # ROMS partition (created by firstboot service on first boot)
-/dev/mmcblk1p3    /roms     vfat     defaults,utf8,noatime,nofail           0      0
+/dev/mmcblk1p3    /roms     vfat     defaults,utf8,noatime,nofail,x-systemd.device-timeout=5s  0  0
 # tmpfs — reduce SD card writes, improve performance
 tmpfs             /tmp      tmpfs    defaults,nosuid,nodev,size=128M        0      0
 tmpfs             /var/log  tmpfs    defaults,nosuid,nodev,noexec,size=16M  0      0

@@ -1,5 +1,36 @@
 #!/bin/bash
-# Arch R - Set maximum performance for gaming
-echo performance > /sys/devices/system/cpu/cpufreq/policy0/scaling_governor 2>/dev/null
-echo performance > /sys/devices/platform/ff400000.gpu/devfreq/ff400000.gpu/governor 2>/dev/null
-echo performance > /sys/devices/platform/dmc/devfreq/dmc/governor 2>/dev/null
+# Arch R - Performance Governor (Max)
+# Sets CPU, GPU, and DMC to maximum performance
+# Based on dArkOS perfmax for RK3326
+
+gpu="ff400000"
+
+# Make governor files writable
+chmod 666 /sys/devices/platform/${gpu}.gpu/devfreq/${gpu}.gpu/governor 2>/dev/null
+chmod 666 /sys/devices/system/cpu/cpufreq/policy0/scaling_governor 2>/dev/null
+chmod 666 /sys/devices/platform/dmc/devfreq/dmc/governor 2>/dev/null
+
+if [[ "$1" == "powersave" ]]; then
+  echo "userspace" > /sys/devices/platform/${gpu}.gpu/devfreq/${gpu}.gpu/governor
+  echo "400000000" > /sys/devices/platform/${gpu}.gpu/devfreq/${gpu}.gpu/userspace/set_freq 2>/dev/null
+  echo "userspace" > /sys/devices/system/cpu/cpufreq/policy0/scaling_governor
+  echo "1008000" > /sys/devices/system/cpu/cpufreq/policy0/scaling_setspeed 2>/dev/null
+  echo "userspace" > /sys/devices/platform/dmc/devfreq/dmc/governor
+  echo "528000000" > /sys/devices/platform/dmc/devfreq/dmc/userspace/set_freq 2>/dev/null
+elif [[ "$1" == "ondemand" ]]; then
+  echo simple_ondemand > /sys/devices/platform/${gpu}.gpu/devfreq/${gpu}.gpu/governor
+  echo ondemand > /sys/devices/system/cpu/cpufreq/policy0/scaling_governor
+  echo dmc_ondemand > /sys/devices/platform/dmc/devfreq/dmc/governor
+  if [ "$(cat /sys/devices/system/cpu/cpufreq/policy0/scaling_governor)" == "ondemand" ]; then
+    echo 85 > /sys/devices/system/cpu/cpu0/cpufreq/ondemand/up_threshold 2>/dev/null
+    echo 150 > /sys/devices/system/cpu/cpu0/cpufreq/ondemand/sampling_down_factor 2>/dev/null
+  fi
+elif [[ -n "$1" ]]; then
+  echo "$1" > /sys/devices/platform/${gpu}.gpu/devfreq/${gpu}.gpu/governor
+  echo "$1" > /sys/devices/system/cpu/cpufreq/policy0/scaling_governor
+  echo "$1" > /sys/devices/platform/dmc/devfreq/dmc/governor
+else
+  echo "performance" > /sys/devices/platform/${gpu}.gpu/devfreq/${gpu}.gpu/governor
+  echo "performance" > /sys/devices/system/cpu/cpufreq/policy0/scaling_governor
+  echo "performance" > /sys/devices/platform/dmc/devfreq/dmc/governor
+fi
