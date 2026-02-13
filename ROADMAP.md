@@ -341,25 +341,106 @@ Created ROADMAP.md and linked from README.md.
 
 ---
 
+### 2026-02-12 — Day 9: Audio Breakthrough & Runtime Fixes
+
+**Three-iteration audio debugging marathon** — each iteration revealed a deeper problem:
+
+**Audio Iteration 1: Pinctrl Conflict**
+- dmesg: `pin gpio2-19 already requested by 0-0020; cannot claim for rk817-codec`
+- Root cause: Parent `&rk817` in odroid-go.dtsi already claims `i2s1_2ch_mclk` pin.
+  Adding `pinctrl-0 = <&i2s1_2ch_mclk>` on the codec sub-device tries to claim the same pin again.
+- Fix: Removed `pinctrl-names` and `pinctrl-0` from `&rk817_codec` override.
+
+**Audio Iteration 2: DAI Mismatch**
+- dmesg: `DMA mask not set` + `deferred probe pending` (no sound card created)
+- Root cause: Adding `compatible = "rockchip,rk817-codec"` causes the MFD framework to assign
+  the child's own `of_node` to the codec. The codec registers under `&rk817_codec`, but the
+  sound card's `sound-dai = <&rk817>` still points to the parent → ASoC can't match the DAI.
+- Fix: Override `rk817-sound` in DTS: `sound-dai = <&rk817_codec>` + add `#sound-dai-cells = <0>`.
+
+**Audio Iteration 3: DAPM Routing (FINAL FIX)**
+- dmesg: `ASoC: Failed to add route Mic Jack -> MICL(*)`
+  `ASoC: Failed to add route HPOL(*) -> Headphones`
+  `ASoC: Failed to add route SPKO(*) -> Speaker`
+- Root cause: The BSP rk817 codec driver has **zero DAPM widgets** (no `SND_SOC_DAPM_*` macros,
+  no `dapm_widgets` array, nothing). It uses a completely different mechanism:
+  - `Playback Path` ALSA enum (OFF/SPK/HP/HP_NO_MIC/BT/SPK_HP/etc.)
+  - `DAC Playback Volume` stereo control (0-255, inverted, -95dB to -1.1dB)
+  - Direct register writes based on selected enum path
+  The sound card's routing references widgets MICL/HPOL/HPOR/SPKO that don't exist → all 4 routes
+  fail → card registration aborted → "No soundcards found".
+- Fix: `/delete-property/ simple-audio-card,widgets` + `/delete-property/ simple-audio-card,routing`
+  in the R36S DTS override.
+
+**RESULT:** Sound card `rk817_int` successfully registered! `pcmC0D0p` (playback) and `pcmC0D0c`
+(capture) created. Codec probed: `chip_name:0x81, chip_ver:0x75`. Only remaining warning:
+`DAPM unknown pin Headphones` (from `hp-det-gpio`) — non-fatal.
+
+**Other fixes this session:**
+
+*unset_preload.so — LD_PRELOAD pollution solved:*
+- Created `unset_preload.c` — tiny shared library with `__attribute__((constructor))` that calls
+  `unsetenv("LD_PRELOAD")` after the dynamic linker has loaded all preloaded libraries.
+- With `LD_PRELOAD="libGL.so.1 unset_preload.so"`: gl4es loads in ES process, but child processes
+  (system(), popen()) don't inherit it. Without this, every subprocess (battery check, distro
+  version, brightnessctl) loaded gl4es → init messages contaminated stdout.
+- Confirmed working: debug log shows clean subprocess output (no `LIBGL:` messages).
+
+*Battery DTS — 7 missing BSP properties added:*
+- `monitor_sec=5`, `virtual_power=0`, `sleep_exit_current=300`, `power_off_thresd=3400`,
+  `charge_stay_awake=0`, `fake_full_soc=100`, `nominal_voltage=3800`
+- Silences BSP driver warnings. Battery monitoring confirmed: 84%, Discharging.
+
+*ES Patch 5 — getShOutput() null safety:*
+- `popen()` can return NULL if fork/exec fails (e.g., out of file descriptors)
+- `fgets(buffer, size, NULL)` → SIGSEGV/SIGABRT (exit code 134)
+- Added `if (!pipe) return "";` after popen() call
+
+*Volume/brightness hotkey fixes (READY, NOT YET DEPLOYED):*
+- Volume control: Changed from `Playback` (enum!) to `DAC Playback Volume` (actual level)
+- Brightness: Added 5% minimum (prevents black screen), persistence to `~/.config/archr/brightness`
+- current_volume script: Fixed to read `DAC Playback Volume` (was reading enum → always "N/A")
+- MODE button: Fixed repeat handling (`val==2` no longer clears `mode_held`)
+
+**Known issues (end of day):**
+1. **Brightness:** `brightnessctl` changes sysfs values but screen doesn't visually change.
+   PWM1 backlight device exists (max=1666) but PWM output may not reach the LCD backlight circuit.
+2. **Volume buttons:** Fix ready in scripts, not yet deployed to SD card (needs sudo).
+3. **ES crash on language change:** Occurs when saving es_settings.cfg. Needs investigation.
+4. **Shutdown:** `systemctl poweroff` halts system but RK817 PMIC doesn't cut power — device stays on.
+   `rockchip,system-power-controller` is set but full pinctrl causes kernel panic.
+
+**Files changed (DTB deployed to BOOT, scripts need ROOTFS deploy):**
+- `rk3326-gameconsole-r36s.dts` — audio routing fix, battery properties
+- `scripts/emulationstation.sh` — audio init, brightness restore, unset_preload.so
+- `scripts/archr-hotkeys.py` — DAC volume, brightness min/save, MODE repeat
+- `scripts/current_volume` — reads DAC Playback Volume
+- `scripts/unset_preload.c` — new file, LD_PRELOAD cleanup
+- `build-gl4es.sh` — Step 6: cross-compiles unset_preload.so
+- `build-emulationstation.sh` — unset_preload.so install + Patch 5
+- `rebuild-es-sdcard.sh` — unset_preload.so install + Patch 5
+
+---
+
 ## What's Left for v1.0 Stable
 
 ### Critical — Must Work Before Release
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | ES rendering on screen | Not tested | gl4es + Panfrost pipeline needs hardware validation |
-| 2 | Audio output | Not tested | rk817-codec in DTS, never tested on hardware |
-| 3 | Game launch (RetroArch) | Not tested | ES → RetroArch → core → ROM full pipeline |
-| 4 | Button/joystick in ES | Partially tested | es_input.cfg created, needs re-validation |
-| 5 | Button/joystick in games | Not tested | gamecontrollerdb.txt + RetroArch autoconfig |
-| 6 | Clean shutdown/reboot | Not tested | PMIC pinctrl in DTS, needs verification |
+| 1 | ES rendering on screen | **WORKING** | gl4es + Panfrost confirmed, ES fast and stable |
+| 2 | Audio output | **Card registered** | rk817_int card + PCM devices created, needs volume/path test |
+| 3 | Game launch (RetroArch) | **BLOCKED** | ALARM's retroarch is Qt/XCB → needs KMSDRM custom build |
+| 4 | Button/joystick in ES | **WORKING** | gpio-keys (17 buttons) + adc-joystick (4 axes) |
+| 5 | Button/joystick in games | Not tested | Depends on RetroArch KMSDRM build |
+| 6 | Clean shutdown/reboot | **BROKEN** | systemd halts OK but PMIC doesn't cut power |
 
 ### High Priority — Expected for Release
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 7 | Volume control (hotkeys) | Not tested | archr-hotkeys.py daemon |
-| 8 | Brightness control | Not tested | MODE+VOL combo via hotkey daemon |
+| 7 | Volume control (hotkeys) | **Fix ready** | Script fixed (DAC Playback Volume), needs deploy to SD |
+| 8 | Brightness control | **BROKEN** | sysfs values change but screen doesn't dim (PWM issue) |
 | 9 | Boot splash display | Not tested | BGRA raw → fb0 |
 | 10 | Panel selection (PanCho) | Not tested | 18 DTBOs generated, boot.ini integration |
 | 11 | Full build from scratch | Not tested | `build-all.sh` end-to-end |
@@ -392,15 +473,19 @@ Created ROADMAP.md and linked from README.md.
 
 ## Path to v1.0
 
-**Current phase:** Hardware validation of GPU rendering pipeline
+**Current phase:** Audio validation + RetroArch KMSDRM build
 
-1. **Test gl4es + Panfrost rendering** — Flash updated SD card, verify ES displays on screen
-2. **Fix audio** — Test rk817-codec, add DTS node if missing
-3. **Validate game launch** — RetroArch core loading, input in games
-4. **Full build test** — Run `build-all.sh` end-to-end on clean environment
-5. **Polish** — Boot splash, hotkeys, shutdown, panel selection
-6. **Release candidate** — Generate final image, test on multiple R36S units
+1. ~~**Test gl4es + Panfrost rendering**~~ — **DONE.** ES renders on screen, Panfrost GPU confirmed
+2. ~~**Fix audio card registration**~~ — **DONE.** rk817_int card registered (3-iteration fix chain)
+3. **Deploy audio scripts + test speaker output** — sudo cp to ROOTFS, test `speaker-test`
+4. **Fix brightness** — PWM1 not changing screen, investigate driver/DTS/hardware
+5. **Build RetroArch with KMSDRM** — ALARM package uses Qt/XCB, needs custom build
+6. **Validate game launch** — RetroArch core loading, input in games
+7. **Fix shutdown** — PMIC power-off path without pinctrl (kernel panic with full pinctrl)
+8. **Full build test** — Run `build-all.sh` end-to-end on clean environment
+9. **Polish** — Boot splash, panel selection, ES language crash fix
+10. **Release candidate** — Generate final image, test on multiple R36S units
 
 ---
 
-*Last updated: 2026-02-11*
+*Last updated: 2026-02-12*

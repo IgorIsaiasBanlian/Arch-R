@@ -1,23 +1,17 @@
 #!/bin/bash
 # Arch R - Current volume level for ES info bar
 # Returns volume percentage string
+# rk817 BSP codec uses "DAC Playback Volume" (not "Master" or "Playback")
 
-# Try Playback Path control (rk817 codec)
-vol=$(amixer sget 'Playback Path' 2>/dev/null | grep -o '\[.*%\]' | head -1 | tr -d '[]')
+# Try DAC Playback Volume (rk817 BSP codec)
+vol=$(amixer sget 'DAC Playback Volume' 2>/dev/null | grep -o '\[.*%\]' | head -1 | tr -d '[]')
 if [ -n "$vol" ]; then
     echo "$vol"
     exit 0
 fi
 
-# Try Master control
+# Fallback: Master control (other codecs)
 vol=$(amixer sget Master 2>/dev/null | awk -F'[][]' '/Left:/ { print $2 }')
-if [ -n "$vol" ]; then
-    echo "$vol"
-    exit 0
-fi
-
-# Try Playback control
-vol=$(amixer sget Playback 2>/dev/null | awk -F'[][]' '/Left:/ { print $2 }')
 if [ -n "$vol" ]; then
     echo "$vol"
     exit 0

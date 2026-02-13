@@ -94,8 +94,21 @@ fi
 install -d "$ROOTFS_DIR/usr/lib/gl4es"
 install -m 755 "$GL4ES_DIR/libGL.so.1" "$ROOTFS_DIR/usr/lib/gl4es/"
 ln -sf libGL.so.1 "$ROOTFS_DIR/usr/lib/gl4es/libGL.so"
-install -m 755 "$GL4ES_DIR/libEGL.so.1" "$ROOTFS_DIR/usr/lib/gl4es/"
-ln -sf libEGL.so.1 "$ROOTFS_DIR/usr/lib/gl4es/libEGL.so"
+# IMPORTANT: Do NOT install gl4es's libEGL.so.1!
+# gl4es EGL wrapper is NOT a full EGL implementation — SDL3 KMSDRM needs real Mesa EGL.
+# ES source is patched to request GLES 2.0 context (SDL_GL_CONTEXT_PROFILE_ES),
+# and gl4es detects the existing GLES context for its GL→GLES2 translation.
+# install -m 755 "$GL4ES_DIR/libEGL.so.1" "$ROOTFS_DIR/usr/lib/gl4es/"  # DISABLED
+
+# unset_preload.so — prevents LD_PRELOAD inheritance to child processes
+# Without this, ES subprocesses (battery check, distro version) load gl4es
+# and its init messages contaminate stdout → "BAT: 87LIBGL: Initialising gl4es..."
+if [ -f "$OUTPUT_DIR/unset_preload.so" ]; then
+    install -m 755 "$OUTPUT_DIR/unset_preload.so" "$ROOTFS_DIR/usr/lib/unset_preload.so"
+    log "  unset_preload.so installed"
+else
+    warn "unset_preload.so not found at $OUTPUT_DIR/ — build it with build-gl4es.sh"
+fi
 
 # System-level symlinks so cmake FindOpenGL resolves to gl4es
 ln -sf gl4es/libGL.so.1 "$ROOTFS_DIR/usr/lib/libGL.so.1"
@@ -301,7 +314,25 @@ sed -i 's|std::string glExts = (const char\*)glGetString(GL_EXTENSIONS);|const c
 sed -i '/\t\t\/\/ vsync/i\\t\t// Arch R: Re-establish GL context — setIcon() via sdl2-compat loses it\n\t\tSDL_GL_MakeCurrent(getSDLWindow(), sdlContext);' \
     es-core/src/renderers/Renderer_GL21.cpp
 
-echo "  Patched Renderer_GL21.cpp (MAJOR/MINOR fix, null safety, GL context restore)"
+# Patch 4: Request GLES 2.0 context profile in setupWindow().
+# Mesa Panfrost doesn't support Desktop GL contexts — only GLES 2.0+.
+# Without this, SDL requests Desktop GL 2.1 → eglCreateContext fails → SIGSEGV.
+# With GLES 2.0 context, gl4es detects it (eglGetCurrentContext) and translates GL→GLES2.
+sed -i '/SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);/i\\t\tSDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);' \
+    es-core/src/renderers/Renderer_GL21.cpp
+
+# Change MINOR version: 1 → 0 (GLES 2.0, not GL 2.1)
+sed -i 's/SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);/SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);/' \
+    es-core/src/renderers/Renderer_GL21.cpp
+
+echo "  Patched Renderer_GL21.cpp (MAJOR/MINOR fix, null safety, GL context restore, GLES profile)"
+
+# Patch 5: Null safety for getShOutput() — popen() can return NULL.
+# Without this check, fgets(buffer, size, NULL) → SIGSEGV/SIGABRT.
+# GuiMenu calls getShOutput() for battery, volume, brightness, WiFi info.
+sed -i 's|FILE\* pipe{popen(mStr.c_str(), "r")};|FILE* pipe{popen(mStr.c_str(), "r")};\n    if (!pipe) return "";|' \
+    es-core/src/platform.cpp
+echo "  Patched platform.cpp (getShOutput NULL safety)"
 
 echo "=== ES Build: Compiling ==="
 
@@ -315,6 +346,7 @@ rm -rf CMakeCache.txt CMakeFiles
 cmake . \
     -DCMAKE_BUILD_TYPE=Release \
     -DGL=ON \
+    -DOpenGL_GL_PREFERENCE=LEGACY \
     -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -DCMAKE_CXX_FLAGS="-O2 -march=armv8-a+crc -mtune=cortex-a35 -include cstdint"
 
@@ -416,6 +448,7 @@ log "  /usr/bin/emulationstation/resources/         (themes/fonts)"
 log "  /usr/bin/emulationstation/emulationstation.sh (launch script)"
 log "  /usr/local/bin/emulationstation              (symlink)"
 log "  /usr/lib/gl4es/libGL.so.1                    (gl4es GL→GLES2 translation)"
-log "  /usr/lib/gl4es/libEGL.so.1                   (gl4es EGL wrapper)"
+log "  /usr/lib/unset_preload.so                    (prevents LD_PRELOAD inheritance)"
+log "  (gl4es libEGL.so.1 NOT installed — SDL uses real Mesa EGL)"
 log "  /etc/emulationstation/es_systems.cfg         (system config)"
 log ""

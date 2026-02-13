@@ -4,7 +4,8 @@
 # Based on dArkOS perfnorm for RK3326
 
 gpu="ff400000"
+DMC_GOV="/sys/devices/platform/dmc/devfreq/dmc/governor"
 
 echo simple_ondemand > /sys/devices/platform/${gpu}.gpu/devfreq/${gpu}.gpu/governor
 echo ondemand > /sys/devices/system/cpu/cpufreq/policy0/scaling_governor
-echo dmc_ondemand > /sys/devices/platform/dmc/devfreq/dmc/governor
+[ -f "$DMC_GOV" ] && echo dmc_ondemand > "$DMC_GOV"

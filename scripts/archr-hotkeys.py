@@ -27,6 +27,15 @@ except ImportError:
 VOL_STEP = 2
 # Brightness step (percentage per key press)
 BRIGHT_STEP = 3
+# Minimum brightness percentage (prevent black screen)
+BRIGHT_MIN = 5
+# Brightness persistence file
+BRIGHT_SAVE = os.path.expanduser("~/.config/archr/brightness")
+
+# ALSA control name for rk817 BSP codec
+# "Playback Path" is an enum (SPK/HP/OFF), NOT a volume control
+# "DAC Playback Volume" is the actual stereo level (0-255, inverted)
+ALSA_VOL_CTRL = "DAC Playback Volume"
 
 
 def run_cmd(cmd):
@@ -38,19 +47,50 @@ def run_cmd(cmd):
 
 
 def volume_up():
-    run_cmd(f"amixer -q sset Playback {VOL_STEP}%+")
+    run_cmd(f"amixer -q sset '{ALSA_VOL_CTRL}' {VOL_STEP}%+")
 
 
 def volume_down():
-    run_cmd(f"amixer -q sset Playback {VOL_STEP}%-")
+    run_cmd(f"amixer -q sset '{ALSA_VOL_CTRL}' {VOL_STEP}%-")
+
+
+def get_brightness_pct():
+    """Read current brightness as percentage from sysfs."""
+    try:
+        with open("/sys/class/backlight/backlight/brightness") as f:
+            cur = int(f.read().strip())
+        with open("/sys/class/backlight/backlight/max_brightness") as f:
+            mx = int(f.read().strip())
+        return (cur * 100) // mx if mx > 0 else 50
+    except Exception:
+        return 50
+
+
+def save_brightness():
+    """Save current brightness value for persistence across reboots."""
+    try:
+        with open("/sys/class/backlight/backlight/brightness") as f:
+            val = f.read().strip()
+        os.makedirs(os.path.dirname(BRIGHT_SAVE), exist_ok=True)
+        with open(BRIGHT_SAVE, "w") as f:
+            f.write(val)
+    except Exception:
+        pass
 
 
 def brightness_up():
     run_cmd(f"brightnessctl -q s +{BRIGHT_STEP}%")
+    save_brightness()
 
 
 def brightness_down():
-    run_cmd(f"brightnessctl -qn s {BRIGHT_STEP}%-")
+    if get_brightness_pct() <= BRIGHT_MIN:
+        return
+    run_cmd(f"brightnessctl -q s {BRIGHT_STEP}%-")
+    # Clamp: if we went below minimum, set to minimum
+    if get_brightness_pct() < BRIGHT_MIN:
+        run_cmd(f"brightnessctl -q s {BRIGHT_MIN}%")
+    save_brightness()
 
 
 def speaker_toggle(headphone_in):
@@ -137,8 +177,13 @@ def main():
                             val = event.value  # 1=press, 0=release, 2=repeat
 
                             # Track MODE button from gamepad (passive)
+                            # val: 1=press, 0=release, 2=repeat
+                            # Don't clear on repeat (2==1 is False!)
                             if key == ecodes.BTN_MODE:
-                                mode_held = (val == 1)
+                                if val == 1:
+                                    mode_held = True
+                                elif val == 0:
+                                    mode_held = False
 
                             # Volume keys from gpio-keys-vol (grabbed)
                             elif key == ecodes.KEY_VOLUMEUP and val in (1, 2):

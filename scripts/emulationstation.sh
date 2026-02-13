@@ -18,16 +18,46 @@ export SDL_VIDEO_DRIVER=KMSDRM         # SDL3 style (for libSDL3 directly)
 # gl4es: Desktop OpenGL → GLES 2.0 translation layer
 # ES-fcamod built with -DGL=ON (Renderer_GL21.cpp, Desktop OpenGL 2.1)
 # Rendering pipeline: ES (Desktop GL 2.1) → gl4es → GLES 2.0 → Panfrost (Mali-G31)
-# gl4es EGL wrapper intercepts eglCreateContext: remaps Desktop GL → GLES 2.0
+#
+# How it works (without gl4es EGL wrapper):
+#   1. ES setupWindow() requests GLES 2.0 context (SDL_GL_CONTEXT_PROFILE_ES patch)
+#   2. SDL3 KMSDRM creates GLES 2.0 context via Mesa EGL → Panfrost GPU
+#   3. ES calls Desktop GL functions → gl4es libGL.so.1 intercepts them
+#   4. gl4es detects the GLES 2.0 context (eglGetCurrentContext) and translates GL→GLES2
+#
+# DO NOT set SDL_VIDEO_EGL_DRIVER — gl4es's libEGL.so is NOT a full EGL implementation.
+# SDL3 KMSDRM needs real Mesa EGL for GBM display/surface init.
+# gl4es libEGL.so.1 must NOT be in /usr/lib/gl4es/ either — LD_LIBRARY_PATH would
+# shadow Mesa's libEGL.so.1, causing the same crash.
 export LD_LIBRARY_PATH=/usr/lib/gl4es:${LD_LIBRARY_PATH:-}
-export SDL_VIDEO_EGL_DRIVER=/usr/lib/gl4es/libEGL.so.1
+
+# gl4es loading: LD_PRELOAD forces gl4es libGL.so.1 to load (cmake links against
+# libOpenGL.so/libglvnd, not libGL.so.1). unset_preload.so removes LD_PRELOAD from
+# the environment AFTER the dynamic linker loads both libraries — this way gl4es is
+# loaded in ES's process, but child processes (system(), popen()) don't inherit it.
+# Without this: every subprocess (battery check, distro version, brightnessctl) loads
+# gl4es → init messages contaminate stdout → "BAT: 87LIBGL: Initialising gl4es..."
+ES_LD_PRELOAD="/usr/lib/gl4es/libGL.so.1 /usr/lib/unset_preload.so"
 
 # gl4es backend configuration
+export LIBGL_FB=0                       # CRITICAL: Don't create own framebuffer/EGL context
+                                        # Without this, gl4es tries eglGetDisplay(DEFAULT) which
+                                        # fails on KMSDRM → renders to its own dead context → black screen
+                                        # With FB=0, gl4es uses SDL's existing GLES context
 export LIBGL_ES=2                       # Use GLES 2.0 as backend
 export LIBGL_GL=21                      # Report OpenGL 2.1 to application
-export LIBGL_NPOT=1                     # Non-power-of-two textures (GPU supports it)
+export LIBGL_NPOT=3                     # Full NPOT support (1=limited, 3=full — avoids texture rescaling)
 export LIBGL_NOERROR=1                  # Suppress GL errors for performance
 export LIBGL_SILENTSTUB=1              # Suppress stub function warnings
+export LIBGL_FASTMATH=1                 # Use fast math approximations
+export LIBGL_USEVBO=1                   # Use VBOs for vertex data (faster than immediate mode)
+export LIBGL_TEXCOPY=1                  # Optimize texture uploads
+export LIBGL_NOTEST=1                   # Skip EGL hardware extension query — use GLES 2.0 defaults
+                                        # MUST be 1: gl4es eglInitialize floods on KMSDRM even with
+                                        # patched binary (tested=1 early not preventing re-entry)
+                                        # NOTEST=1 is safe: npot=1, fbo=1, blendcolor=1 (GLES 2.0 standard)
+# gl4es debug: 0=silent, 1=init+errors, 2=verbose (performance killer!)
+export LIBGL_DEBUG=0                    # PRODUCTION: silent (1 for diagnostics)
 
 # Tell gl4es where to find real Mesa libraries (avoid loading itself via LD_LIBRARY_PATH)
 export LIBGL_EGL=/usr/lib/libEGL.so.1
@@ -38,16 +68,44 @@ export SDL_GAMECONTROLLERCONFIG_FILE="/etc/archr/gamecontrollerdb.txt"
 # DO NOT set MESA_LOADER_DRIVER_OVERRIDE=panfrost — breaks kmsro render-offload!
 export LIBGL_ALWAYS_SOFTWARE=0
 
-# Enable SDL verbose logging — shows which video driver is actually used
-# Set BOTH SDL2 and SDL3 style logging env vars
-export SDL_LOG_PRIORITY=verbose        # SDL2 style
-export SDL_LOGGING="*=verbose"         # SDL3 style
+# SDL logging: only errors (verbose was for KMSDRM debugging, now confirmed working)
+export SDL_LOG_PRIORITY=error          # SDL2 style
+export SDL_LOGGING="*=error"           # SDL3 style
+
+# DO NOT set MESA_NO_ERROR=1 — gl4es makes some invalid GLES calls during
+# Desktop GL → GLES translation. With no-error mode, Mesa segfaults instead of
+# returning GL_INVALID_OPERATION gracefully. Confirmed: SIGSEGV (exit 139).
+# gl4es already has LIBGL_NOERROR=1 which suppresses errors on the gl4es side.
+
+# Mesa shader cache — speeds up subsequent launches by caching compiled shaders
+export MESA_SHADER_CACHE_DIR="$HOME/.cache/mesa_shader_cache"
+mkdir -p "$MESA_SHADER_CACHE_DIR" 2>/dev/null
 
 # Ensure runtime dir exists
 mkdir -p "$XDG_RUNTIME_DIR"
 
+# Suppress gl4es drirc warnings (per-system and per-user)
+if [ ! -f /etc/drirc ]; then
+    echo '<?xml version="1.0"?><driconf/>' | sudo tee /etc/drirc >/dev/null 2>/dev/null
+fi
+if [ ! -f "$HOME/.drirc" ]; then
+    echo '<?xml version="1.0"?><driconf/>' > "$HOME/.drirc" 2>/dev/null
+fi
+
 # Set performance governors for gaming (archr has NOPASSWD sudo for perf commands)
-sudo /usr/local/bin/perfmax 2>/dev/null
+sudo /usr/local/bin/perfmax 2>&1 || true
+
+# Audio initialization: rk817 BSP codec starts with path OFF
+# Must set Playback Path to SPK for speaker output, then set volume level
+# DAC Playback Volume range: 0-255 (inverted), 80% ≈ -20dB (comfortable level)
+amixer -q sset 'Playback Path' SPK 2>/dev/null
+amixer -q sset 'DAC Playback Volume' 80% 2>/dev/null
+
+# Restore saved brightness (or set default 50%)
+BRIGHT_SAVE="$HOME/.config/archr/brightness"
+if [ -f "$BRIGHT_SAVE" ]; then
+    brightnessctl -q s "$(cat "$BRIGHT_SAVE")" 2>/dev/null
+fi
 
 # Ensure DRM/TTY device permissions for game launch (ES needs to release/reacquire)
 sudo chmod 666 /dev/tty1 2>/dev/null
@@ -74,8 +132,7 @@ if [ -f "$HOME/.emulationstation/es_settings.cfg" ]; then
         sed -i 's|<config>|<config>\n  <bool name="HideWindow" value="true" />|' \
             "$HOME/.emulationstation/es_settings.cfg"
     fi
-    # Temporarily force debug log level for KMSDRM debugging
-    sed -i 's|"LogLevel" value="[^"]*"|"LogLevel" value="debug"|' \
+    sed -i 's|"LogLevel" value="[^"]*"|"LogLevel" value="warning"|' \
         "$HOME/.emulationstation/es_settings.cfg"
 fi
 
@@ -89,7 +146,7 @@ if [ ! -f "$HOME/.emulationstation/es_settings.cfg" ]; then
 <config>
   <int name="MaxVRAM" value="150" />
   <bool name="HideWindow" value="true" />
-  <string name="LogLevel" value="debug" />
+  <string name="LogLevel" value="warning" />
   <string name="ScreenSaverBehavior" value="black" />
   <string name="TransitionStyle" value="instant" />
   <string name="SaveGamelistsMode" value="on exit" />
@@ -108,7 +165,7 @@ esdir="$(dirname "$0")"
 # Also write a copy to /boot if writable (FAT32, easy to read from PC)
 DEBUGLOG="$HOME/es-debug.log"
 
-# Comprehensive diagnostic logging
+# Compact diagnostic logging — Panfrost/KMSDRM/VT already confirmed working
 {
     echo "=========================================="
     echo "Arch R ES Debug Log - $(date)"
@@ -117,134 +174,58 @@ DEBUGLOG="$HOME/es-debug.log"
     echo "--- Environment ---"
     echo "User: $(id)"
     echo "TTY: $(tty)"
-    echo "PWD: $(pwd)"
     echo "SDL_VIDEODRIVER=$SDL_VIDEODRIVER"
-    echo "SDL_VIDEO_EGL_DRIVER=$SDL_VIDEO_EGL_DRIVER"
+    echo "SDL_VIDEO_DRIVER=$SDL_VIDEO_DRIVER"
     echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
+    echo "ES_LD_PRELOAD=$ES_LD_PRELOAD (applied only to ES binary)"
+    echo "LIBGL_FB=$LIBGL_FB"
     echo "LIBGL_ES=$LIBGL_ES"
     echo "LIBGL_GL=$LIBGL_GL"
     echo "LIBGL_EGL=$LIBGL_EGL"
     echo "LIBGL_GLES=$LIBGL_GLES"
-    echo "MESA_LOADER_DRIVER_OVERRIDE=${MESA_LOADER_DRIVER_OVERRIDE:-(not set, kmsro auto)}"
+    echo "LIBGL_DEBUG=$LIBGL_DEBUG"
     echo ""
     echo "--- DRI Devices ---"
     ls -la /dev/dri/ 2>&1
     echo ""
-    echo "--- DRM Device Info ---"
-    for card in /dev/dri/card*; do
-        echo "Device: $card"
-        echo "  readable: $(test -r "$card" && echo YES || echo NO)"
-        echo "  writable: $(test -w "$card" && echo YES || echo NO)"
-        # Show which driver this card uses
-        if [ -d "/sys/class/drm/$(basename $card)/device/driver" ]; then
-            echo "  driver: $(basename $(readlink /sys/class/drm/$(basename $card)/device/driver))"
-        fi
-        # Show connectors
-        for conn in /sys/class/drm/$(basename $card)-*/status; do
-            if [ -f "$conn" ]; then
-                connname=$(basename $(dirname "$conn"))
-                echo "  connector: $connname = $(cat $conn)"
-            fi
-        done
-    done
-    echo ""
-    echo "--- VT Info ---"
-    echo "Current VT: $(sudo cat /sys/class/tty/tty0/active 2>/dev/null || echo unknown)"
-    echo "tty1 permissions: $(ls -la /dev/tty1 2>&1)"
-    echo ""
-    echo "--- SDL Libraries ---"
-    echo "libSDL2: $(ls -la /usr/lib/libSDL2* 2>&1)"
-    echo "libSDL3: $(ls -la /usr/lib/libSDL3* 2>&1)"
-    echo ""
-    echo "--- KMSDRM in SDL ---"
-    # Use grep -a (binary mode) instead of strings — binutils may not be installed
-    grep -ao 'KMSDRM[_A-Z]*' /usr/lib/libSDL3.so.0.* 2>/dev/null | sort -u | head -5
-    echo "SDL_VIDEODRIVER=$SDL_VIDEODRIVER"
-    echo "SDL_VIDEO_DRIVER=$SDL_VIDEO_DRIVER"
-    echo ""
-    echo "--- gl4es Libraries ---"
-    echo "gl4es libGL: $(ls -la /usr/lib/gl4es/libGL.so* 2>&1)"
-    echo "gl4es libEGL: $(ls -la /usr/lib/gl4es/libEGL.so* 2>&1)"
-    echo ""
-    echo "--- Mesa/System Libraries ---"
-    echo "Mesa libEGL: $(ls -la /usr/lib/libEGL.so* 2>&1)"
-    echo "libGLESv2: $(ls -la /usr/lib/libGLESv2.so* 2>&1)"
-    echo "libgbm: $(ls -la /usr/lib/libgbm.so* 2>&1)"
-    echo "Panfrost DRI: $(ls -la /usr/lib/dri/panfrost_dri.so 2>&1)"
-    echo "System libGL: $(ls -la /usr/lib/libGL.so* 2>&1)"
-    echo ""
-    echo "--- GPU Kernel Driver Status ---"
-    echo "Panfrost loaded:"
-    if [ -d /sys/bus/platform/drivers/panfrost ]; then
-        echo "  driver: YES"
-        ls /sys/bus/platform/drivers/panfrost/ 2>&1
-    else
-        echo "  driver: NOT LOADED!"
-    fi
-    echo "Mali Midgard loaded:"
-    if [ -d /sys/bus/platform/drivers/mali ]; then
-        echo "  driver: YES (CONFLICT!)"
-        ls /sys/bus/platform/drivers/mali/ 2>&1
-    else
-        echo "  driver: no (good)"
-    fi
-    echo "renderD128 driver:"
-    if [ -L /sys/class/drm/renderD128/device/driver ]; then
-        echo "  $(basename $(readlink /sys/class/drm/renderD128/device/driver))"
-    else
-        echo "  NOT FOUND!"
-    fi
-    echo "GPU device:"
-    for dev in /sys/bus/platform/devices/*.gpu /sys/bus/platform/devices/*mali*; do
+    echo "--- GPU Status ---"
+    for dev in /sys/bus/platform/devices/*.gpu; do
         if [ -e "$dev" ]; then
-            echo "  $dev"
-            if [ -f "$dev/of_node/compatible" ]; then
-                echo "    compatible: $(cat $dev/of_node/compatible | tr '\0' ' ')"
-            fi
-            if [ -L "$dev/driver" ]; then
-                echo "    bound to: $(basename $(readlink $dev/driver))"
-            else
-                echo "    bound to: NONE (no driver bound!)"
-            fi
+            drv="NONE"
+            [ -L "$dev/driver" ] && drv=$(basename $(readlink "$dev/driver"))
+            echo "  $(basename "$dev"): $drv"
         fi
     done 2>/dev/null
-    echo "Kernel config GPU:"
-    zcat /proc/config.gz 2>/dev/null | grep -E 'PANFROST|MALI' | head -10
+    lsmod 2>/dev/null | grep -E 'panfrost|mali' || echo "  (no GPU modules loaded)"
     echo ""
-    echo "--- dmesg GPU/Panfrost ---"
-    sudo dmesg 2>/dev/null | grep -iE 'panfrost|mali|gpu|drm.*ff400|bifrost' | head -30
+    echo "--- CPU/GPU Governors ---"
+    echo "  CPU governor: $(cat /sys/devices/system/cpu/cpufreq/policy0/scaling_governor 2>&1)"
+    echo "  CPU freq: $(cat /sys/devices/system/cpu/cpufreq/policy0/scaling_cur_freq 2>&1) kHz"
+    echo "  CPU max: $(cat /sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq 2>&1) kHz"
+    echo "  GPU governor: $(cat /sys/devices/platform/ff400000.gpu/devfreq/ff400000.gpu/governor 2>&1)"
+    echo "  GPU freq: $(cat /sys/devices/platform/ff400000.gpu/devfreq/ff400000.gpu/cur_freq 2>&1) Hz"
     echo ""
-    echo "--- dmesg IOMMU ---"
-    sudo dmesg 2>/dev/null | grep -iE 'iommu|rockchip-iommu' | head -10
+    echo "--- gl4es ---"
+    ls -la /usr/lib/gl4es/ 2>&1
     echo ""
-    echo "--- dmesg errors/failures ---"
-    sudo dmesg 2>/dev/null | grep -iE 'fatal|failed|error.*gpu|error.*mali|error.*panfrost' | head -10
+    echo "--- Audio Status ---"
+    if [ -d /dev/snd ]; then
+        ls -la /dev/snd/ 2>&1
+        echo "  ALSA cards:"
+        cat /proc/asound/cards 2>&1 || echo "  (no cards)"
+    else
+        echo "  /dev/snd/ does NOT exist — no ALSA devices!"
+    fi
+    echo "  Battery: $(cat /sys/class/power_supply/battery/capacity 2>&1)%"
+    echo "  Charging: $(cat /sys/class/power_supply/battery/status 2>&1)"
+    echo "  Power supply devices:"
+    ls /sys/class/power_supply/ 2>&1 || echo "  (none)"
+    echo ""
+    echo "--- Audio/Codec dmesg ---"
+    dmesg 2>/dev/null | grep -iE 'rk817|i2s|sound|audio|codec|asoc|snd' | tail -20
     echo ""
     echo "--- es_settings.cfg ---"
     cat "$HOME/.emulationstation/es_settings.cfg" 2>&1
-    echo ""
-    echo "--- VT Graphics Mode Test ---"
-    # Test if we can switch VT to graphics mode (hides console text)
-    # This is what SDL KMSDRM does internally. If this fails, KMSDRM can't work.
-    python3 -c "
-import fcntl, os, time
-try:
-    fd = os.open('/dev/tty', os.O_RDWR)
-    KDGETMODE = 0x4B3B
-    KDSETMODE = 0x4B3A
-    KD_TEXT = 0
-    KD_GRAPHICS = 1
-    import struct
-    mode = struct.unpack('i', fcntl.ioctl(fd, KDGETMODE, b'\x00\x00\x00\x00'))[0]
-    print(f'Current VT mode: {\"TEXT\" if mode == 0 else \"GRAPHICS\" if mode == 1 else mode}')
-    fcntl.ioctl(fd, KDSETMODE, KD_GRAPHICS)
-    print('Set VT to GRAPHICS mode: OK')
-    fcntl.ioctl(fd, KDSETMODE, KD_TEXT)
-    print('Restored VT to TEXT mode: OK')
-    os.close(fd)
-except Exception as e:
-    print(f'VT graphics mode test FAILED: {e}')
-" 2>&1
     echo ""
     echo "=========================================="
     echo "Starting EmulationStation..."
@@ -254,68 +235,14 @@ except Exception as e:
 # Copy debug log to /boot (FAT32, easy to read from PC) — needs sudo
 sudo cp "$DEBUGLOG" /boot/es-debug.log 2>/dev/null
 
-# KMSDRM + GL context diagnostic — runs in single SDL session, safe for boot
-if [ -f "$esdir/test-kmsdrm.py" ]; then
-    echo "--- KMSDRM GL Diagnostic ---" >> "$DEBUGLOG"
-    timeout 30 python3 "$esdir/test-kmsdrm.py" >> "$DEBUGLOG" 2>&1 || true
-    echo "Test exit code: $?" >> "$DEBUGLOG"
-    echo "" >> "$DEBUGLOG"
-    sudo cp "$DEBUGLOG" /boot/es-debug.log 2>/dev/null
-fi
-
-# Panfrost GPU module test — load and capture crash trace for debugging
-# Safe: module crash won't panic since it's not built-in
-echo "--- Panfrost Module Test ---" >> "$DEBUGLOG"
-KVER=$(uname -r)
-echo "  Kernel: $KVER" >> "$DEBUGLOG"
-echo "  Module dirs: $(ls /lib/modules/ 2>&1)" >> "$DEBUGLOG"
-PANFROST_KO="/lib/modules/$KVER/kernel/drivers/gpu/drm/panfrost/panfrost.ko"
-if [ -f "$PANFROST_KO" ]; then
-    echo "  panfrost.ko: FOUND ($PANFROST_KO)" >> "$DEBUGLOG"
-elif [ -f "${PANFROST_KO}.zst" ]; then
-    echo "  panfrost.ko.zst: FOUND (compressed)" >> "$DEBUGLOG"
-    PANFROST_KO="${PANFROST_KO}.zst"
-elif [ -f "${PANFROST_KO}.xz" ]; then
-    echo "  panfrost.ko.xz: FOUND (compressed)" >> "$DEBUGLOG"
-    PANFROST_KO="${PANFROST_KO}.xz"
-else
-    echo "  panfrost.ko: NOT FOUND at $PANFROST_KO" >> "$DEBUGLOG"
-    echo "  Looking for panfrost anywhere..." >> "$DEBUGLOG"
-    find /lib/modules/ -name 'panfrost*' 2>/dev/null >> "$DEBUGLOG"
-fi
-echo "  modules.dep exists: $(test -f /lib/modules/$KVER/modules.dep && echo YES || echo NO)" >> "$DEBUGLOG"
-echo "  depmod panfrost entries:" >> "$DEBUGLOG"
-grep panfrost /lib/modules/$KVER/modules.dep 2>/dev/null >> "$DEBUGLOG" || echo "  (none)" >> "$DEBUGLOG"
-
-if lsmod 2>/dev/null | grep -q panfrost; then
-    echo "  panfrost already loaded" >> "$DEBUGLOG"
-else
-    # Run depmod first in case it wasn't run after module install
+# Ensure Panfrost module is loaded (needed for GPU acceleration)
+if ! lsmod 2>/dev/null | grep -q panfrost; then
+    echo "--- Loading Panfrost module ---" >> "$DEBUGLOG"
     sudo depmod -a 2>> "$DEBUGLOG"
-    echo "  Loading panfrost module (verbose)..." >> "$DEBUGLOG"
     sudo modprobe -v panfrost >> "$DEBUGLOG" 2>&1
-    MODPROBE_RET=$?
-    echo "  modprobe exit code: $MODPROBE_RET" >> "$DEBUGLOG"
-    sleep 2
-    echo "  lsmod panfrost: $(lsmod 2>/dev/null | grep panfrost || echo 'NOT LOADED')" >> "$DEBUGLOG"
+    sleep 1
 fi
-echo "  --- dmesg panfrost messages ---" >> "$DEBUGLOG"
-sudo dmesg 2>/dev/null | grep -iE 'panfrost|gpu.*ff400' >> "$DEBUGLOG"
-echo "" >> "$DEBUGLOG"
-# Check if GPU bound successfully
-echo "  --- GPU binding status ---" >> "$DEBUGLOG"
-for dev in /sys/bus/platform/devices/*.gpu; do
-    if [ -e "$dev" ]; then
-        if [ -L "$dev/driver" ]; then
-            echo "  $(basename $dev) bound to: $(basename $(readlink $dev/driver))" >> "$DEBUGLOG"
-        else
-            echo "  $(basename $dev) bound to: NONE" >> "$DEBUGLOG"
-        fi
-    fi
-done 2>/dev/null
-if [ -L /sys/class/drm/renderD128/device/driver ]; then
-    echo "  renderD128: $(basename $(readlink /sys/class/drm/renderD128/device/driver))" >> "$DEBUGLOG"
-fi
+echo "Panfrost: $(lsmod 2>/dev/null | grep panfrost | head -1 || echo 'NOT LOADED')" >> "$DEBUGLOG"
 echo "" >> "$DEBUGLOG"
 sudo cp "$DEBUGLOG" /boot/es-debug.log 2>/dev/null
 
@@ -325,11 +252,41 @@ sudo cp "$DEBUGLOG" /boot/es-debug.log 2>/dev/null
 while true; do
     rm -f /tmp/es-restart /tmp/es-sysrestart /tmp/es-shutdown
 
-    # Run ES — output goes to tty and also captured to debug log
-    "$esdir/emulationstation" "$@" 2>&1 | tee -a "$DEBUGLOG"
-    ret=${PIPESTATUS[0]}
+    # Background: check which GPU driver ES actually loaded (definitive panfrost vs llvmpipe)
+    # Runs after 3s delay, finds ES by process name, checks /proc/maps
+    {
+        sleep 3
+        ES_PID=$(pgrep -x emulationstation 2>/dev/null | head -1)
+        if [ -n "$ES_PID" ] && [ -r "/proc/$ES_PID/maps" ]; then
+            echo "" >> "$DEBUGLOG"
+            echo "--- GPU Driver Check (PID $ES_PID) ---" >> "$DEBUGLOG"
+            if grep -q "panfrost" /proc/$ES_PID/maps 2>/dev/null; then
+                echo "  CONFIRMED: Panfrost GPU (hardware accelerated)" >> "$DEBUGLOG"
+            elif grep -q "llvmpipe\|swrast" /proc/$ES_PID/maps 2>/dev/null; then
+                echo "  WARNING: llvmpipe/swrast (SOFTWARE rendering — slow!)" >> "$DEBUGLOG"
+            else
+                echo "  Unknown GPU driver — check /proc/$ES_PID/maps manually" >> "$DEBUGLOG"
+            fi
+            grep -E "panfrost|llvmpipe|swrast|gl4es|libGL" /proc/$ES_PID/maps >> "$DEBUGLOG" 2>/dev/null
+            sudo cp "$DEBUGLOG" /boot/es-debug.log 2>/dev/null
+        fi
+    } &
+
+    # Run ES — output captured to debug log (no tee: tty1 is KMSDRM, text invisible)
+    # IMPORTANT: Removing the pipe to tee eliminates I/O bottleneck on slow microSD.
+    # With tee, EVERY line of gl4es/Mesa output blocks ES until tee writes to SD card.
+    # LD_PRELOAD applies ONLY to ES process — forces gl4es libGL.so.1 to load
+    # so its GL symbols override libglvnd's dispatch (cmake linked against libOpenGL.so)
+    LD_PRELOAD="$ES_LD_PRELOAD" "$esdir/emulationstation" "$@" >> "$DEBUGLOG" 2>&1
+    ret=$?
 
     echo "ES exited with code: $ret" >> "$DEBUGLOG"
+    # Capture ES internal log (has GL extensions, system info)
+    if [ -f "$HOME/.emulationstation/es_log.txt" ]; then
+        echo "" >> "$DEBUGLOG"
+        echo "--- ES Internal Log (es_log.txt) ---" >> "$DEBUGLOG"
+        cat "$HOME/.emulationstation/es_log.txt" >> "$DEBUGLOG" 2>&1
+    fi
     # Save debug log to /boot for easy access from PC
     sudo cp "$DEBUGLOG" /boot/es-debug.log 2>/dev/null
 
