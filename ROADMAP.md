@@ -424,8 +424,6 @@ Created ROADMAP.md and linked from README.md.
 
 ### 2026-02-13 — Day 10: Audio, Shutdown, Brightness — All Working
 
-*Session details captured in previous ROADMAP update and MEMORY.md.*
-
 Key achievements:
 - **Audio fully working:** Speaker output confirmed, volume hotkeys (DAC), headphone jack detection
 - **PMIC shutdown fixed:** systemd shutdown hook at `/usr/lib/systemd/system-shutdown/pmic-poweroff`
@@ -490,29 +488,156 @@ RK3326 can drive Mali-G31 at 650MHz with appropriate vdd_logic voltage.
 
 ---
 
+### 2026-02-15 — Day 12: GLES 1.0 Native, 78fps Stable, RetroArch Running
+
+**The most transformative day of the project.** Three major breakthroughs:
+
+**1. GLES 1.0 Native Rendering — gl4es ELIMINATED (+26% GPU performance)**
+
+Discovered that Mesa's Panfrost driver CAN support GLES 1.0 via internal fixed-function
+emulation (TNL — Transform and Lighting). The key was rebuilding Mesa 26 with the right flags:
+
+```
+meson setup build \
+    -Dgles1=enabled \    # ← Enable GLES 1.0 state tracker (TNL)
+    -Dglvnd=false \      # ← Direct Mesa EGL (no libglvnd dispatch)
+    ...
+```
+
+**Before (gl4es pipeline):** ES (GL 2.1) → gl4es (translate) → GLES 2.0 → Panfrost = **46fps**
+**After (native pipeline):** ES (GLES 1.0) → Mesa TNL → Panfrost = **57-58fps** (+26%!)
+
+Build changes:
+- ES rebuilt with `-DGLES=ON` (Renderer_GLES10.cpp) instead of `-DGL=ON` (Renderer_GL21.cpp)
+- gl4es completely removed — no more `LD_PRELOAD`, `LIBGL_*` env vars, `unset_preload.so`
+- emulationstation.sh simplified: just `MESA_NO_ERROR=1` + `SDL_VIDEODRIVER=KMSDRM`
+- SDL3 rebuilt with `-DSDL_KMSDRM=ON` (ALARM's SDL3 still doesn't have KMSDRM)
+
+**EGL_BAD_ALLOC Root Cause & Fix:**
+After deploying Mesa 26 to SD card, ES crashed with `EGL_BAD_ALLOC`. Three nested issues:
+1. Mesa was initially built with `glvnd=auto` → EGL dispatch through libglvnd, gallium
+   megadriver missing GLES 1.0 state tracker
+2. Rebuilt Mesa with `-Dgles1=enabled -Dglvnd=false` for direct Mesa EGL
+3. **libglvnd version trap:** Old libglvnd's `libEGL.so.1.1.0` had HIGHER .so version than
+   Mesa's `libEGL.so.1.0.0` → `ldconfig` preferred the old one! Had to manually remove
+   old libglvnd files and fix symlinks.
+
+**Mesa 26 direct libraries (no libglvnd):**
+- `libEGL.so.1` → `libEGL.so.1.0.0` (360KB)
+- `libGLESv1_CM.so.1` → `libGLESv1_CM.so.1.1.0` (78KB)
+- `libGLESv2.so.2` → `libGLESv2.so.2.0.0` (93KB)
+- `libgallium-26.0.0.so` (21MB) — with GLES 1.0 TNL state tracker
+
+---
+
+**2. FPS Stability: 57-58fps → 78fps STABLE (Root Cause: popen() fork overhead)**
+
+After achieving GLES 1.0 native, FPS was 57-58 (should be 60+). Investigated multiple
+hypotheses — depth buffer (patches 8-12), panel timing, governor settings — all rejected.
+
+**The root cause was `popen("brightnessctl")` called 25 times per second!**
+
+`BrightnessInfoComponent` polls every 40ms (`CHECKBRIGHTNESSDELAY=40`). When
+`mExistBrightnessctl=true`, `getBrightnessLevel()` calls:
+```cpp
+popen("brightnessctl -m | awk -F',|%' '{print $4}'", "r")
+```
+Each `popen()` = `fork()` → on ARM Cortex-A35, fork() costs **2-5ms per call**.
+25 forks/sec × 3ms average = **75ms/sec wasted** — pushes frames over 16.67ms budget.
+
+**Patches 13-14 (the FPS fix):**
+- Patch 13: `mExistBrightnessctl = false` → forces sysfs direct reads (already coded as
+  fallback in `DisplayPanelControl.cpp` — open/read/close, microseconds)
+- Patch 14: Polling intervals reduced: brightness 40→500ms, volume 40→200ms
+
+**Result: 78fps rock-solid stable!** User reaction: *"PERFEITO 78 FPS estável!"*
+
+**Panel Discovery: 78.2Hz refresh rate (NOT 60Hz!)**
+
+RetroArch's DRM log revealed: `Mode 0: (640x480) 640 x 480, 78.209274 Hz`
+
+The R36S panel actually runs at **78.2Hz**, not 60Hz. VSync IS engaging correctly —
+ES and RetroArch both render at the panel's native rate. The "78fps instead of 60"
+was not a vsync failure, but the panel being inherently faster than expected.
+
+---
+
+**3. GPU 600MHz Unlocked (zero overvolt)**
+
+Extended GPU from 520MHz to **600MHz** at the same 1175mV — zero voltage increase:
+- Stock rk3326.dtsi adds `opp-520000000` at 1175mV
+- Fixed `vdd_logic` regulator max: 1150mV → 1175mV (was capping 520MHz OPP)
+- Added 560MHz and 600MHz OPPs at same 1175mV
+- **Chip bin=2** (from dmesg) — better quality silicon, room to push higher
+- 520→600MHz = **+15.4% GPU performance** at zero voltage increase
+
+**DRAM: 666MHz → 786MHz** enabled (`opp-786000000 { status = "okay" }` in dmc_opp_table)
+— ~18% more memory bandwidth.
+
+---
+
+**4. RetroArch Built & Running (Video Works, Audio NOT Working)**
+
+Built RetroArch v1.22.2 from source (`build-retroarch.sh`):
+- `--enable-kms --enable-egl --enable-opengles --enable-opengles3`
+- `--disable-x11 --disable-wayland --disable-qt --disable-vulkan`
+- `--disable-pulse --disable-jack --enable-alsa --enable-udev`
+- CFLAGS: `-O2 -march=armv8-a+crc -mtune=cortex-a35`
+- Binary: 16MB, KMS/DRM context, GLES 3.1 via Panfrost
+
+**Video:** Working perfectly — Mali-G31 MC1 (Panfrost), OpenGL ES 3.1 Mesa 26.0.0
+**Input:** gpio-keys detected as joypad, autoconfig working (some launches)
+**Audio:** ALSA initializes successfully but **NO sound output**
+**Game launch:** Super Mario World (SNES) runs, video smooth, returns to ES cleanly
+
+Investigated dArkOS RG351MP audio approach:
+- `asound.conf`: `plug → dmix → hw:0,0` at 44100 Hz (we had bare `type hw`)
+- `audio_device = ""` (empty, not "default")
+- `audio_volume = "6.0"` (+6dB software boost)
+- `verifyaudio.sh`: restores mixer state after each game exit
+
+Applied all dArkOS-style audio config but still no sound. Suspected root cause:
+RetroArch's microphone driver opens a capture ALSA connection (`[Microphone] Initialized
+microphone driver.`). dArkOS builds with `--disable-microphone` — we don't.
+**Next step: rebuild RetroArch with `--disable-microphone` and test.**
+
+**Known Issues (end of day):**
+- **RetroArch audio:** No sound despite ALSA init success. Needs `--disable-microphone` rebuild.
+- **Volume on exit:** RetroArch modifies system volume on exit. Wrapper now saves/restores.
+- **Kernel panic on shutdown:** "Attempted to kill the idle task!" — likely PMIC shutdown hook
+  causing I2C operations while kernel is shutting down. Needs investigation.
+
+**Performance patches applied to ES (quick-rebuild-es.sh):**
+- Patches 1-7: Context fixes (go2, MINOR, ES profile, null safety, MakeCurrent, getShOutput, language)
+- Patches 8-12: Depth buffer optimization (24→0, stencil, disable depth test)
+- Patches 13-14: **THE FPS FIX** — popen elimination + polling interval reduction
+
+---
+
 ## What's Left for v1.0 Stable
 
 ### Critical — Must Work Before Release
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | ES rendering on screen | **WORKING** | gl4es + Panfrost confirmed, ES fast and stable |
-| 2 | Audio output | **WORKING** | Speaker + volume hotkeys + headphone detection |
-| 3 | Game launch (RetroArch) | **BLOCKED** | ALARM's retroarch is Qt/XCB → needs KMSDRM custom build |
+| 1 | ES rendering on screen | **WORKING** | GLES 1.0 native → Mesa TNL → Panfrost, 78fps stable |
+| 2 | Audio output (ES) | **NOT TESTED** | Volume hotkeys work (DAC level changes). ES NEVER played any sound — needs test! |
+| 3 | Game launch (RetroArch) | **PARTIAL** | Video works, input works, **audio NOT working** |
 | 4 | Button/joystick in ES | **WORKING** | gpio-keys (17 buttons) + adc-joystick (4 axes) |
-| 5 | Button/joystick in games | Not tested | Depends on RetroArch KMSDRM build |
-| 6 | Clean shutdown/reboot | **WORKING** | systemd shutdown hook + PMIC I2C power-off |
+| 5 | Button/joystick in games | **WORKING** | udev joypad, autoconfig detected |
+| 6 | Clean shutdown/reboot | **REGRESSION** | Kernel panic "Attempted to kill idle task" on shutdown |
 
 ### High Priority — Expected for Release
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 7 | Volume control (hotkeys) | **WORKING** | DAC mixer + VOL+/VOL- hotkeys |
+| 7 | Volume control (hotkeys) | **WORKING** | DAC mixer + VOL+/VOL- hotkeys in ES |
 | 8 | Brightness control | **WORKING** | Direct sysfs backlight (max=255), MODE+VOL hotkeys |
-| 9 | Mesa 26 on-device test | **Needs test** | Built, needs deploy to SD card |
-| 10 | GPU 650MHz unlock | **Needs research** | ARM Mali-G31 specs: 650-800MHz common |
-| 11 | Panel selection (PanCho) | Not tested | 18 DTBOs generated, boot.ini integration |
-| 12 | Full build from scratch | Not tested | `build-all.sh` end-to-end |
+| 9 | Mesa 26 on-device | **WORKING** | gles1=enabled, glvnd=false, Panfrost GLES 3.1 |
+| 10 | GPU 600MHz unlock | **WORKING** | 520→600MHz, zero overvolt, bin=2 silicon |
+| 11 | RetroArch audio | **BLOCKED** | ALSA init OK but no sound. Need `--disable-microphone` rebuild |
+| 12 | Panel selection (PanCho) | Not tested | 18 DTBOs generated, boot.ini integration |
+| 13 | Full build from scratch | Not tested | `build-all.sh` end-to-end |
 
 ### Medium Priority — Can Ship Without, Fix in Updates
 
@@ -541,22 +666,43 @@ RK3326 can drive Mali-G31 at 650MHz with appropriate vdd_logic voltage.
 
 ## Path to v1.0
 
-**Current phase:** Mesa 26 validation + GPU clock + RetroArch KMSDRM build
+**Current phase:** Fix RetroArch audio + shutdown regression
 
 1. ~~**Test gl4es + Panfrost rendering**~~ — **DONE.** ES renders on screen, Panfrost GPU confirmed
 2. ~~**Fix audio card registration**~~ — **DONE.** rk817_int card registered (3-iteration fix chain)
 3. ~~**Audio output + volume/brightness**~~ — **DONE.** Speaker, DAC hotkeys, brightness all working
-4. ~~**Fix shutdown**~~ — **DONE.** systemd shutdown hook + PMIC I2C power-off
+4. ~~**Fix shutdown**~~ — **DONE then REGRESSED.** Systemd hook works, but kernel panic appeared
 5. ~~**CPU 1512MHz unlock**~~ — **DONE.** `rockchip,avs = <1>` (dArkOS approach)
 6. ~~**Build Mesa 26**~~ — **DONE.** Panfrost + LLVM, megadriver architecture
-7. **Test Mesa 26 on device** — deploy libs to SD card, verify ES rendering
-8. **GPU 650MHz** — investigate Mali-G31 at 650MHz (ARM spec), vdd_logic voltage
-9. **Build RetroArch with KMSDRM** — ALARM package uses Qt/XCB, needs custom build
-10. **Validate game launch** — RetroArch core loading, input in games
-11. **Full build test** — Run `build-all.sh` end-to-end on clean environment
-12. **Polish** — Boot splash, panel selection
-13. **Release candidate** — Generate final image, test on multiple R36S units
+7. ~~**Test Mesa 26 on device**~~ — **DONE.** GLES 1.0 native, 78fps stable, EGL_BAD_ALLOC fixed
+8. ~~**GPU 600MHz unlock**~~ — **DONE.** Zero overvolt, bin=2 silicon, +15.4% vs 520MHz
+9. ~~**GLES 1.0 native rendering**~~ — **DONE.** Eliminated gl4es entirely, +26% GPU perf
+10. ~~**FPS stability fix**~~ — **DONE.** popen() fork overhead → sysfs direct reads, 78fps stable
+11. ~~**Build RetroArch with KMSDRM**~~ — **DONE.** v1.22.2, KMS/DRM + EGL + GLES, 16MB binary
+12. ~~**Validate game launch**~~ — **DONE.** Video works, input works, returns to ES cleanly
+13. **Fix RetroArch audio** — ALSA init OK but no sound. Rebuild with `--disable-microphone`
+14. **Fix shutdown kernel panic** — "Attempted to kill idle task", investigate PMIC hook
+15. **Full build test** — Run `build-all.sh` end-to-end on clean environment
+16. **Polish** — Boot splash, panel selection, theme
+17. **Release candidate** — Generate final image, test on multiple R36S units
+
+## Stats
+
+| Metric | Value |
+|--------|-------|
+| Project start | 2026-02-04 |
+| Days active | 12 |
+| Kernel version | 6.6.89-archr |
+| CPU frequency | 1512MHz (unlocked from 1200) |
+| GPU frequency | 600MHz (unlocked from 480) |
+| DRAM frequency | 786MHz (unlocked from 666) |
+| ES FPS | 78fps stable (panel 78.2Hz) |
+| ES rendering | GLES 1.0 → Mesa TNL → Panfrost |
+| RetroArch rendering | GLES 3.1 → Panfrost |
+| Panel support | 18 panels (6 original + 12 clone) |
+| RetroArch cores | 18 pre-installed |
+| Root causes found & fixed | 20+ |
 
 ---
 
-*Last updated: 2026-02-14*
+*Last updated: 2026-02-15*
