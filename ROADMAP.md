@@ -614,6 +614,46 @@ microphone driver.`). dArkOS builds with `--disable-microphone` — we don't.
 
 ---
 
+### 2026-02-15 (cont.) — ES Audio Deep Investigation
+
+**Extensive debugging of ES audio silence.** Three separate investigation rounds.
+
+**Findings:**
+- ALSA hardware pipeline works: `speaker-test` plays 440Hz tone through speaker and headphone
+- Speaker amp GPIO 116 sysfs workaround confirmed working (direction=out, value=1)
+- Volume buttons confirmed working in hotkey daemon log (VOL+/VOL- events handled correctly)
+- AudioDevice corrected from "Speaker" to "DAC" in es_settings.cfg (VolumeControl needs correct mixer name)
+- asound.conf simplified: `plug → hw:0,0` (removed dmix — dArkOS also removes it for games)
+- SDL3 ALSA backend opens successfully: `SDL chose audio backend 'alsa'`, `PCM open 'default'`
+- VolumeControl init succeeds: finds "DAC" mixer element, Mixer initialized
+
+**Root Cause Found — ES-fcamod audio architecture has two independent features:**
+
+1. **`playRandomMusic()` (startup)** — searches `~/.emulationstation/music/` for .ogg/.mp3 files.
+   **This directory didn't exist!** → no files found → silent startup.
+2. **`bgsound` (theme per-system)** — plays music from theme's `<sound name="bgsound">` element
+   when user **scrolls between systems**. Not triggered on initial display.
+3. **Theme epic-cody has ZERO navigation sounds** — no menuOpen, back, launch, scrollSound.
+
+Without startup music AND without scrolling between systems, ES is **designed to be silent**.
+
+**Fixes deployed:**
+- Created `~/.emulationstation/music/` with 94 symlinks to theme .ogg files
+- Updated emulationstation.sh: auto-detects active theme from es_settings.cfg (works with ANY theme)
+- Added Patch 15 to quick-rebuild-es.sh: AudioManager diagnostic logging (themeChanged, playMusic, playRandomMusic)
+
+**Also discovered:** AudioManager has ZERO success logging — `playMusic()` only logs on `Mix_LoadMUS` failure, `themeChanged()` has no LOG statements at all. Patch 15 adds diagnostic logging for next ES rebuild.
+
+**REGRESSION:** Last test showed "sem beep, sem som" — even the speaker-test beep stopped working.
+This is worse than before and needs investigation. Possible causes:
+- emulationstation.sh deployment issue (speaker-test section may not be executing)
+- ALSA device left in bad state from previous session
+- Permissions issue on SD card files
+
+**Status: ES rebuild with Patch 15 (AudioManager logging) planned for next session.**
+
+---
+
 ## What's Left for v1.0 Stable
 
 ### Critical — Must Work Before Release
@@ -621,7 +661,7 @@ microphone driver.`). dArkOS builds with `--disable-microphone` — we don't.
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 1 | ES rendering on screen | **WORKING** | GLES 1.0 native → Mesa TNL → Panfrost, 78fps stable |
-| 2 | Audio output (ES) | **NOT TESTED** | Volume hotkeys work (DAC level changes). ES NEVER played any sound — needs test! |
+| 2 | Audio output (ES) | **IN PROGRESS** | Root cause found (missing music dir). speaker-test beep regressed. Needs ES rebuild with logging |
 | 3 | Game launch (RetroArch) | **PARTIAL** | Video works, input works, **audio NOT working** |
 | 4 | Button/joystick in ES | **WORKING** | gpio-keys (17 buttons) + adc-joystick (4 axes) |
 | 5 | Button/joystick in games | **WORKING** | udev joypad, autoconfig detected |
@@ -643,30 +683,30 @@ microphone driver.`). dArkOS builds with `--disable-microphone` — we don't.
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 13 | WiFi connection | Not tested | NetworkManager + AIC8800 driver |
-| 14 | Bluetooth pairing | Not tested | bluez installed |
-| 15 | Battery LED indicator | Installed | Python service, needs hardware test |
-| 16 | Sleep/wake | Not implemented | PMIC sleep pinctrl in DTS |
-| 17 | OTA updates | Not implemented | Future feature |
-| 18 | Theme customization | Default only | ES-fcamod default theme |
-| 19 | Headphone detection | Not tested | archr-hotkeys.py ALSA switch |
+| 14 | WiFi connection | Not tested | NetworkManager + AIC8800 driver |
+| 15 | Bluetooth pairing | Not tested | bluez installed |
+| 16 | Battery LED indicator | Installed | Python service, needs hardware test |
+| 17 | Sleep/wake | Not implemented | PMIC sleep pinctrl in DTS |
+| 18 | OTA updates | Not implemented | Future feature |
+| 19 | Theme customization | Default only | ES-fcamod default theme |
+| 20 | Headphone detection | Not tested | archr-hotkeys.py ALSA switch |
 
 ### Low Priority — Post-Release
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 20 | Additional RetroArch cores | 19 installed | More via pacman/AUR |
-| 21 | Custom ES theme | Not started | Arch R branded theme |
-| 22 | PortMaster integration | Not started | Native Linux game ports |
-| 23 | DraStic (DS emulator) | Not started | Proprietary, needs license |
-| 24 | Scraper integration | Not started | ES metadata scraping |
-| 25 | Wi-Fi setup UI | Not started | In-ES WiFi configuration |
+| 21 | Additional RetroArch cores | 19 installed | More via pacman/AUR |
+| 22 | Custom ES theme | Not started | Arch R branded theme |
+| 23 | PortMaster integration | Not started | Native Linux game ports |
+| 24 | DraStic (DS emulator) | Not started | Proprietary, needs license |
+| 25 | Scraper integration | Not started | ES metadata scraping |
+| 26 | Wi-Fi setup UI | Not started | In-ES WiFi configuration |
 
 ---
 
 ## Path to v1.0
 
-**Current phase:** Fix RetroArch audio + shutdown regression
+**Current phase:** Fix audio pipeline (ES + RetroArch) + shutdown regression
 
 1. ~~**Test gl4es + Panfrost rendering**~~ — **DONE.** ES renders on screen, Panfrost GPU confirmed
 2. ~~**Fix audio card registration**~~ — **DONE.** rk817_int card registered (3-iteration fix chain)
@@ -680,11 +720,13 @@ microphone driver.`). dArkOS builds with `--disable-microphone` — we don't.
 10. ~~**FPS stability fix**~~ — **DONE.** popen() fork overhead → sysfs direct reads, 78fps stable
 11. ~~**Build RetroArch with KMSDRM**~~ — **DONE.** v1.22.2, KMS/DRM + EGL + GLES, 16MB binary
 12. ~~**Validate game launch**~~ — **DONE.** Video works, input works, returns to ES cleanly
-13. **Fix RetroArch audio** — ALSA init OK but no sound. Rebuild with `--disable-microphone`
-14. **Fix shutdown kernel panic** — "Attempted to kill idle task", investigate PMIC hook
-15. **Full build test** — Run `build-all.sh` end-to-end on clean environment
-16. **Polish** — Boot splash, panel selection, theme
-17. **Release candidate** — Generate final image, test on multiple R36S units
+13. **Rebuild ES with audio logging** — Patch 15 (AudioManager diagnostic LOG statements). `quick-rebuild-es.sh` ready
+14. **Fix RetroArch audio** — Rebuild with `--disable-microphone`
+15. **Fix speaker-test regression** — Beep stopped working, investigate emulationstation.sh deployment
+16. **Fix shutdown kernel panic** — "Attempted to kill idle task", investigate PMIC hook timing
+17. **Full build test** — Run `build-all.sh` end-to-end on clean environment
+18. **Polish** — Boot splash, panel selection, theme
+19. **Release candidate** — Generate final image, test on multiple R36S units
 
 ## Stats
 
@@ -701,7 +743,7 @@ microphone driver.`). dArkOS builds with `--disable-microphone` — we don't.
 | RetroArch rendering | GLES 3.1 → Panfrost |
 | Panel support | 18 panels (6 original + 12 clone) |
 | RetroArch cores | 18 pre-installed |
-| Root causes found & fixed | 20+ |
+| Root causes found & fixed | 21+ |
 
 ---
 
