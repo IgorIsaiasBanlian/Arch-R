@@ -796,6 +796,92 @@ Target:   ~22s   (ES lazy-load themes, potential Mesa shader cache)
 
 ---
 
+### 2026-02-18 — Day 15: ES Binary 7x Faster, The U-Boot Mystery
+
+Today was about profiling. After days of guesswork about where the 29 seconds were going,
+we finally have hard numbers — and the results flipped our assumptions upside down.
+
+**ES binary: 17s → 2.5s — The ThreadPool discovery**
+
+The full source audit of EmulationStation-fcamod revealed an insidious bottleneck hidden
+in plain sight: `SystemData::loadConfig()` uses a ThreadPool to load systems in parallel,
+with a wait callback that calls `renderLoadingScreen()` every 10ms. Sounds reasonable.
+Except `renderLoadingScreen()` calls `Renderer::swapBuffers()`, which blocks on VSync.
+
+Our panel runs at 78.2Hz → each VSync block is ~12.8ms. At 10ms poll interval, we get
+~130 wake-up-and-block cycles during the ~1.3s of actual system loading. Each cycle pays
+the full VSync penalty: 130 × 12.8ms = **~1.7 seconds** wasted on a progress bar nobody
+sees (the loading screen is blank text on a small display, loads in under 2 seconds total).
+
+Patch 19 changes the interval from 10ms to 500ms. The progress bar still updates ~5 times
+during loading, but those 5 swapBuffers are the only ones that block. From 1.7s of VSync
+overhead to ~65ms. Combined with patches 20 (skip non-existent ROM dirs) and 21 (lazy
+MameNames via `std::call_once`), the ES binary now starts in **2.5 seconds**.
+
+The profiling header (`ArchrProfile.h`, patch 18) uses `clock_gettime(CLOCK_MONOTONIC)`
+to print sub-millisecond timestamps to stderr at 5 key boot points. The numbers:
+
+```
+[BOOT    0.0ms] start
+[BOOT   47.3ms] before window.init       — 47ms: Log init, setup
+[BOOT 1609.2ms] before loadConfig        — 1562ms: SDL + EGL + DRM + fonts
+[BOOT 2157.4ms] after loadConfig         — 548ms: ThreadPool systems + themes
+[BOOT 2494.3ms] UI ready                 — 337ms: ViewController goToStart
+```
+
+**But the user still measures 29 seconds from power-on.** If ES only takes 2.5s, and
+kernel+systemd is ~12s, and the ES script adds ~0.5s... where are the other ~14 seconds?
+
+**The U-Boot mystery**
+
+The math doesn't add up: 3.8s (kernel) + 8.4s (systemd) + 0.5s (script) + 2.5s (ES) = 15.2s.
+The user measures 29s. That leaves **~14 seconds** unaccounted for, and U-Boot is the only
+remaining candidate.
+
+We tried to capture a full timeline with `/proc/uptime` timestamps in `emulationstation.sh`
+and `boot-timing.service`. First attempt failed: timeline wrote to `/tmp/es-timeline.txt`
+which is tmpfs — data lost on shutdown. Second attempt: `sleep 20` in boot-timing service
+was too long — user shut down before it finished writing. Fixed both: timeline now writes
+to `/home/archr/es-timeline.txt` (persistent), sleep reduced to 5s.
+
+Next boot will give us the definitive answer. If `script_start` shows uptime=14s, then
+U-Boot is indeed taking ~14s. Possible causes: PanCho panel selection timeout, bootdelay,
+40MB Image load from a slow SD card, DDR training. All investigatable.
+
+**systemd service cleanup**
+
+While investigating, audited all enabled systemd services. Found three quick wins:
+
+1. **getty@tty1 disabled** — ES uses DRM directly, getty was starting then immediately
+   getting killed by `Conflicts=` directive. Wasted 300-500ms on start+stop cycle.
+2. **hotkeys + battery-led services** — had `After=getty@tty1.service` for no reason.
+   Changed to `After=local-fs.target`. No more serial dependency on a dead service.
+3. **Readahead preload removed** from archr-boot-setup.service. The `cat` of ES binary +
+   Mesa libraries into page cache (26MB) was contending with ES's own library loading.
+   ES naturally page-faults its libs during SDL init — the preload just caused double reads.
+
+These won't dramatically change boot time (maybe ~1s combined), but they clean up the
+dependency graph and remove unnecessary I/O during the critical boot path.
+
+**Cross-compilation still broken**
+
+Confirmed earlier finding: Ubuntu's cross-compiler (`aarch64-linux-gnu-gcc` 13.3) produces
+binaries that SIGSEGV on real Cortex-A35 hardware but work fine under `qemu-aarch64-static`.
+Root cause unclear (possibly GLIBC runtime differences or ABI subtlety). All builds must
+go through the QEMU chroot — `quick-rebuild-es.sh` handles this transparently.
+
+**What tomorrow brings**
+
+Boot the R36S, wait 30 seconds, shut down, mount SD card. Read `es-timeline.txt` and
+`boot-timing.txt`. These two files will tell us exactly how the 29 seconds are distributed
+and where to focus next. If it's U-Boot, we need to look at the bootloader configuration
+(bootdelay, PanCho timeout, SD read speed). If it's something else, the data will show.
+
+The kernel config also has pending changes (CIF camera/RAID disabled) that need a rebuild.
+That should shave ~0.5s off kernel probe time.
+
+---
+
 ## What's Left for v1.0 Stable
 
 ### Critical — Must Work Before Release
@@ -818,7 +904,7 @@ Target:   ~22s   (ES lazy-load themes, potential Mesa shader cache)
 | 9 | Mesa 26 on-device | **WORKING** | gles1=enabled, glvnd=false, Panfrost GLES 3.1 |
 | 10 | GPU 600MHz unlock | **WORKING** | 520→600MHz, zero overvolt, bin=2 silicon |
 | 11 | RetroArch audio | **WORKING** | Fixed by `use-ext-amplifier` DTS property (same root cause as ES) |
-| 12 | Boot time optimization | **29s** | Target 22s. Next: ES lazy-load themes |
+| 12 | Boot time optimization | **29s** | ES binary 2.5s (was 17s). Bottleneck now pre-ES (U-Boot?) |
 | 13 | Panel selection (PanCho) | Not tested | 18 DTBOs generated, boot.ini integration |
 | 14 | Full build from scratch | Not tested | `build-all.sh` end-to-end |
 
@@ -849,7 +935,7 @@ Target:   ~22s   (ES lazy-load themes, potential Mesa shader cache)
 
 ## Path to v1.0
 
-**Current phase:** Boot optimization + ES lazy-load
+**Current phase:** Boot profiling — identify U-Boot bottleneck
 
 1. ~~**Test gl4es + Panfrost rendering**~~ — **DONE.** ES renders on screen, Panfrost GPU confirmed
 2. ~~**Fix audio card registration**~~ — **DONE.** rk817_int card registered (3-iteration fix chain)
@@ -864,23 +950,27 @@ Target:   ~22s   (ES lazy-load themes, potential Mesa shader cache)
 11. ~~**Build RetroArch with KMSDRM**~~ — **DONE.** v1.22.2, KMS/DRM + EGL + GLES, 16MB binary
 12. ~~**Validate game launch**~~ — **DONE.** Video works, input works, returns to ES cleanly
 13. ~~**Rebuild ES with audio logging**~~ — **DONE.** Patch 15 confirmed software chain working perfectly
-14. ~~**Fix audio (ES + RetroArch)**~~ — **DONE.** Root cause: missing `use-ext-amplifier` DTS property. DTB-only rebuild, 1 second fix
-15. ~~**Fix shutdown kernel panic**~~ — **TRANSIENT.** Not reproduced since Feb 15. Likely a one-off DRM/I2C race condition during shutdown. Monitor.
-16. ~~**Boot optimization (35s → 29s)**~~ — **DONE.** Systemd ES service, readahead, udev rules, slim script, logo update
-17. ~~**Fix shutdown from systemd service**~~ — **DONE.** Added sudo caps (SETUID/SETGID/DAC_OVERRIDE/AUDIT_WRITE), NOPASSWD sudoers, exit 0 paths
-18. ~~**Fix ROM detection**~~ — **DONE.** LABEL=ROMS in fstab, 10s device timeout, After=local-fs.target
-19. **ES lazy-load themes** — Modify ES source to defer `loadTheme()` per-system until first navigation (~6-8s savings)
-20. **Full build test** — Run `build-all.sh` end-to-end on clean environment
-21. **Polish** — Panel selection, theme, final tweaks
-22. **Release candidate** — Generate final image, test on multiple R36S units
+14. ~~**Fix audio (ES + RetroArch)**~~ — **DONE.** Root cause: missing `use-ext-amplifier` DTS property
+15. ~~**Fix shutdown kernel panic**~~ — **TRANSIENT.** Not reproduced since Feb 15
+16. ~~**Boot optimization (35s → 29s)**~~ — **DONE.** Systemd ES service, readahead, udev rules, slim script
+17. ~~**Fix shutdown from systemd service**~~ — **DONE.** Sudo caps, NOPASSWD sudoers, exit 0 paths
+18. ~~**Fix ROM detection**~~ — **DONE.** LABEL=ROMS in fstab, 10s device timeout
+19. ~~**ES source optimization (21 patches)**~~ — **DONE.** ES binary 17s → 2.5s (7x faster). ThreadPool VSync, skip empty dirs, MameNames lazy
+20. ~~**systemd service cleanup**~~ — **DONE.** getty disabled, dependency chain fixed, preload removed
+21. **Boot profiling: read es-timeline.txt** — Will reveal U-Boot time (est. ~14s)
+22. **Boot: investigate U-Boot** — If >10s: bootdelay, PanCho timeout, SD speed
+23. **Boot: kernel rebuild** — CIF/RAID disabled in config, pending rebuild (~0.5s savings)
+24. **Full build test** — Run `build-all.sh` end-to-end on clean environment
+25. **Polish** — Panel selection, VT flash fix, theme, final tweaks
+26. **Release candidate** — Generate final image, test on multiple R36S units
 
 ## Stats
 
 | Metric | Value |
 |--------|-------|
 | Project start | 2026-02-04 |
-| Days active | 14 |
-| Boot time | 29s (target: 22s) |
+| Days active | 15 |
+| Boot time | 29s (ES=2.5s, bottleneck=pre-ES) |
 | Kernel version | 6.6.89-archr |
 | CPU frequency | 1512MHz (unlocked from 1200) |
 | GPU frequency | 600MHz (unlocked from 480) |
@@ -896,4 +986,4 @@ Target:   ~22s   (ES lazy-load themes, potential Mesa shader cache)
 
 ---
 
-*Last updated: 2026-02-17 (boot optimization session)*
+*Last updated: 2026-02-18 (ES 7x faster, U-Boot mystery)*
