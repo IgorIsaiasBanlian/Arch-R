@@ -1,7 +1,0 @@
-<rocknix>
-  <RK3326 dtb_prefix="rockchip">
-    <a mkimage_options="dtb,bootscr,extlinux,uboot" fdt_type="fdtdir" fdt="/">
-      <file>rk3326-gameconsole-r36s</file>
-    </a>
-  </RK3326>
-</rocknix>
