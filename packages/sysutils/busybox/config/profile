@@ -13,7 +13,7 @@
     esac
   done
 
-  if [ -e /storage/.cache/debug.libreelec ] ; then
+  if [ -e /storage/.cache/debug.archr ] ; then
     export DEBUG=yes
   fi
 

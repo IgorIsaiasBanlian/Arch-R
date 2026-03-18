@@ -238,9 +238,9 @@ post_makeinstall_target() {
   cp ${PKG_DIR}/scripts/systemd-timesyncd-setup ${INSTALL}/usr/sbin
 
   # /etc/resolv.conf and /etc/hosts must be writable
-  ln -sf /run/libreelec/resolv.conf ${INSTALL}/etc/resolv.conf
-  ln -sf /run/libreelec/hosts ${INSTALL}/etc/hosts
-  ln -sf /run/libreelec/environment ${INSTALL}/etc/environment
+  ln -sf /run/archr/resolv.conf ${INSTALL}/etc/resolv.conf
+  ln -sf /run/archr/hosts ${INSTALL}/etc/hosts
+  ln -sf /run/archr/environment ${INSTALL}/etc/environment
 
   # provide 'halt', 'shutdown', 'reboot' & co.
   ln -sf /usr/bin/systemctl ${INSTALL}/usr/sbin/halt

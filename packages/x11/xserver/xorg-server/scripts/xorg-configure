@@ -86,5 +86,5 @@ fi
 ################################################################################
 
 logger -t Xorg "### starting Xorg with '${DISPLAY} vt01 ${XORG_ARGS}' ###"
-mkdir -p /run/libreelec
-echo "XORG_ARGS=\"${XORG_ARGS}\"" >/run/libreelec/xorg-settings.conf
+mkdir -p /run/archr
+echo "XORG_ARGS=\"${XORG_ARGS}\"" >/run/archr/xorg-settings.conf

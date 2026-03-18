@@ -21,13 +21,13 @@ DISTRO_DIR="${ROOT}/distributions"
 PROJECT_DIR="${ROOT}/projects"
 
 # determines DISTRO, if not forced by user
-DISTRO="${DISTRO:-ROCKNIX}"
+DISTRO="${DISTRO:-ArchR}"
 
 # determines PROJECT, if not forced by user
-export PROJECT="${PROJECT:-ROCKNIX}"
+export PROJECT="${PROJECT:-ArchR}"
 
 # default to Generic device if building Generic project without device set
-if [ "${PROJECT}" = "ROCKNIX" -a -z "${DEVICE}" ]; then
+if [ "${PROJECT}" = "ArchR" -a -z "${DEVICE}" ]; then
   export DEVICE="SM8250"
 fi
 
@@ -127,13 +127,13 @@ if [ -z "$ADDON_URL" ]; then
 fi
 
 # read local persistent options from $ROOT if available
-if [ -f "${ROOT}/.rocknix/options" ]; then
-  . "${ROOT}/.rocknix/options"
+if [ -f "${ROOT}/.archr/options" ]; then
+  . "${ROOT}/.archr/options"
 fi
 
 # read global persistent options from $HOME if available
-if [ -f "${HOME}/.rocknix/options" ]; then
-  . "${HOME}/.rocknix/options"
+if [ -f "${HOME}/.archr/options" ]; then
+  . "${HOME}/.archr/options"
 fi
 
 if [ "${LOCAL_CCACHE_SUPPORT}" = "yes" ] && [ -z "${CCACHE_DISABLE}" ]; then

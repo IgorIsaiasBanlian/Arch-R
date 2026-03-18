@@ -245,7 +245,10 @@ mount_part() {
 }
 
 mount_sysroot() {
-  if [ "$SYSTEM_TORAM" = "yes" ]; then
+  if [ -n "$root" ]; then
+    # ext4 root: mount root partition directly (read-write)
+    mount_part "$root" "/sysroot" "rw,noatime"
+  elif [ "$SYSTEM_TORAM" = "yes" ]; then
     cp "/flash/$IMAGE_SYSTEM" /dev/SYSTEM
     mount_part "/dev/SYSTEM" "/sysroot" "ro,loop"
   else
@@ -989,6 +992,14 @@ for arg in $(cat /proc/cmdline); do
           ;;
         /dev/*|LABEL=*|UUID=*)
           RUN_FSCK_DISKS="$RUN_FSCK_DISKS $disk"
+          ;;
+      esac
+      ;;
+    root=*)
+      root="${arg#*=}"
+      case $root in
+        /dev/*|LABEL=*|UUID=*)
+          RUN_FSCK_DISKS="$RUN_FSCK_DISKS $root"
           ;;
       esac
       ;;

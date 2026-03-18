@@ -40,8 +40,8 @@ removables(){
 }
 
 if [[ "${NIGHTLY}" == "1" ]]; then
-  NIGHTLY_URLS="$(curl -s --max-time 10 'https://nightly.rocknix.org/' |\
-    sed -n 's|^.*<a href="\([^"]*\)"|\1|;s|^\(http[^ >]*nightly-[0-9]*/ROCKNIX[^ >]*\)[ >].*$|\1|p')"
+  NIGHTLY_URLS="$(curl -s --max-time 10 'https://nightly.archr.org/' |\
+    sed -n 's|^.*<a href="\([^"]*\)"|\1|;s|^\(http[^ >]*nightly-[0-9]*/ArchR[^ >]*\)[ >].*$|\1|p')"
 fi
 
 nightly_urls(){
@@ -50,20 +50,20 @@ nightly_urls(){
 
 image_locations(){
   case "${NIGHTLY}" in
-    0) ls target/ROCKNIX-*.*.img.gz ;;
+    0) ls target/ArchR-*.*.img.gz ;;
     1) nightly_urls ;;
     *) exit 3 ;;
   esac
 }
 
 images(){
-  image_locations | sed -nE 's|^.*ROCKNIX-([^.]*)\..*-[0-9]+(-.*)?.img.gz|\1\2|p'
+  image_locations | sed -nE 's|^.*ArchR-([^.]*)\..*-[0-9]+(-.*)?.img.gz|\1\2|p'
 }
 
 find_img(){
   DEVICE="${1%-*}"
   SUBDEVICE="${1#${DEVICE}}"
-  image_locations | grep -m 1 "/ROCKNIX-${DEVICE}.aarch64-.*${SUBDEVICE}.img.gz" || exit 1
+  image_locations | grep -m 1 "/ArchR-${DEVICE}.aarch64-.*${SUBDEVICE}.img.gz" || exit 1
 }
 
 

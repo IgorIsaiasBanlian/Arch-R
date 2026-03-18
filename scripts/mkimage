@@ -13,14 +13,23 @@
 IMG_TMP=$(mktemp -d -p ${TARGET_IMG})
 SAVE_ERROR="${IMG_TMP}/save_error"
 
-if [ -z "${SYSTEM_SIZE}" -o -z "${SYSTEM_PART_START}" ]; then
-  echo "mkimage: SYSTEM_SIZE and SYSTEM_PART_START must be configured!"
-  exit 1
+if [ "${ROOTFS_TYPE}" = "ext4" ]; then
+  if [ -z "${BOOT_SIZE}" -o -z "${ROOT_SIZE}" -o -z "${SYSTEM_PART_START}" ]; then
+    echo "mkimage: BOOT_SIZE, ROOT_SIZE, and SYSTEM_PART_START must be configured for ext4!"
+    exit 1
+  fi
+  DISK_START_PADDING=$(((${SYSTEM_PART_START} + 2048 - 1) / 2048))
+  DISK_GPT_PADDING=1
+  DISK_SIZE=$((${DISK_START_PADDING} + ${BOOT_SIZE} + ${ROOT_SIZE} + ${STORAGE_SIZE} + ${DISK_GPT_PADDING}))
+else
+  if [ -z "${SYSTEM_SIZE}" -o -z "${SYSTEM_PART_START}" ]; then
+    echo "mkimage: SYSTEM_SIZE and SYSTEM_PART_START must be configured!"
+    exit 1
+  fi
+  DISK_START_PADDING=$(((${SYSTEM_PART_START} + 2048 - 1) / 2048))
+  DISK_GPT_PADDING=1
+  DISK_SIZE=$((${DISK_START_PADDING} + ${SYSTEM_SIZE} + ${STORAGE_SIZE} + ${DISK_GPT_PADDING}))
 fi
-
-DISK_START_PADDING=$(((${SYSTEM_PART_START} + 2048 - 1) / 2048))
-DISK_GPT_PADDING=1
-DISK_SIZE=$((${DISK_START_PADDING} + ${SYSTEM_SIZE} + ${STORAGE_SIZE} + ${DISK_GPT_PADDING}))
 DISK_BASENAME="${TARGET_IMG}/${IMAGE_NAME}"
 if [ -n "${SUBDEVICE}" ]; then
   DISK_BASENAME="${DISK_BASENAME}-${SUBDEVICE}"
@@ -50,7 +59,7 @@ trap cleanup SIGINT
 
 # create an image
 echo -e "\nimage: creating sparse file for disk image ${DISK##*/}..."
-dd if=/dev/zero of="${DISK}" bs=1M count=0 seek="${DISK_SIZE}" conv=fsync >"${SAVE_ERROR}" 2>&1 || show_error
+dd if=/dev/zero of="${DISK}" bs=1M count="${DISK_SIZE}" conv=fsync >"${SAVE_ERROR}" 2>&1 || show_error
 
 if [ "${BOOTLOADER}" = "syslinux" ]; then
   DISK_LABEL=gpt
@@ -66,18 +75,44 @@ sync
 # create partitions
 echo "image: creating partitions..."
 
-SYSTEM_PART_END=$((${SYSTEM_PART_START} + (${SYSTEM_SIZE} * 1024 * 1024 / 512) - 1))
-STORAGE_PART_START=$((${SYSTEM_PART_END} + 1))
-STORAGE_PART_END=$((${STORAGE_PART_START} + (${STORAGE_SIZE} * 1024 * 1024 / 512) - 1))
+if [ "${ROOTFS_TYPE}" = "ext4" ]; then
+  # 3-partition layout: boot FAT32 + root ext4 + storage ext4
+  BOOT_PART_START=${SYSTEM_PART_START}
+  BOOT_PART_END=$((${BOOT_PART_START} + (${BOOT_SIZE} * 1024 * 1024 / 512) - 1))
+  ROOT_PART_START=$((${BOOT_PART_END} + 1))
+  ROOT_PART_END=$((${ROOT_PART_START} + (${ROOT_SIZE} * 1024 * 1024 / 512) - 1))
+  STORAGE_PART_START=$((${ROOT_PART_END} + 1))
+  STORAGE_PART_END=$((${STORAGE_PART_START} + (${STORAGE_SIZE} * 1024 * 1024 / 512) - 1))
 
-if [ "${DISK_LABEL}" = "gpt" ]; then
-  parted -s "${DISK}" -a min unit s mkpart system fat32 ${SYSTEM_PART_START} ${SYSTEM_PART_END}
-  parted -s "${DISK}" -a min unit s mkpart storage ext4 ${STORAGE_PART_START} ${STORAGE_PART_END}
-  parted -s "${DISK}" set 1 legacy_boot on
+  if [ "${DISK_LABEL}" = "gpt" ]; then
+    parted -s "${DISK}" -a min unit s mkpart boot fat32 ${BOOT_PART_START} ${BOOT_PART_END}
+    parted -s "${DISK}" -a min unit s mkpart root ext4 ${ROOT_PART_START} ${ROOT_PART_END}
+    parted -s "${DISK}" -a min unit s mkpart storage ext4 ${STORAGE_PART_START} ${STORAGE_PART_END}
+    parted -s "${DISK}" set 1 legacy_boot on
+  else
+    parted -s "${DISK}" -a min unit s mkpart primary fat32 ${BOOT_PART_START} ${BOOT_PART_END}
+    parted -s "${DISK}" -a min unit s mkpart primary ext4 ${ROOT_PART_START} ${ROOT_PART_END}
+    parted -s "${DISK}" -a min unit s mkpart primary ext4 ${STORAGE_PART_START} ${STORAGE_PART_END}
+    parted -s "${DISK}" set 1 boot on
+  fi
+
+  # Set SYSTEM_PART_START for boot partition (used by bootloader dd and part1 merge)
+  SYSTEM_PART_END=${BOOT_PART_END}
 else
-  parted -s "${DISK}" -a min unit s mkpart primary fat32 ${SYSTEM_PART_START} ${SYSTEM_PART_END}
-  parted -s "${DISK}" -a min unit s mkpart primary ext4 ${STORAGE_PART_START} ${STORAGE_PART_END}
-  parted -s "${DISK}" set 1 boot on
+  # Original 2-partition layout: system FAT32 + storage ext4
+  SYSTEM_PART_END=$((${SYSTEM_PART_START} + (${SYSTEM_SIZE} * 1024 * 1024 / 512) - 1))
+  STORAGE_PART_START=$((${SYSTEM_PART_END} + 1))
+  STORAGE_PART_END=$((${STORAGE_PART_START} + (${STORAGE_SIZE} * 1024 * 1024 / 512) - 1))
+
+  if [ "${DISK_LABEL}" = "gpt" ]; then
+    parted -s "${DISK}" -a min unit s mkpart system fat32 ${SYSTEM_PART_START} ${SYSTEM_PART_END}
+    parted -s "${DISK}" -a min unit s mkpart storage ext4 ${STORAGE_PART_START} ${STORAGE_PART_END}
+    parted -s "${DISK}" set 1 legacy_boot on
+  else
+    parted -s "${DISK}" -a min unit s mkpart primary fat32 ${SYSTEM_PART_START} ${SYSTEM_PART_END}
+    parted -s "${DISK}" -a min unit s mkpart primary ext4 ${STORAGE_PART_START} ${STORAGE_PART_END}
+    parted -s "${DISK}" set 1 boot on
+  fi
 fi
 sync
 
@@ -91,7 +126,7 @@ fi
 echo "image: creating sparse file for part2..."
 STORAGE_PART_COUNT=$((${STORAGE_PART_END} - ${STORAGE_PART_START} + 1))
 sync
-dd if="${DISK}" of="${IMG_TMP}/part2.ext4" bs=512 count=0 seek="${STORAGE_PART_COUNT}" conv=fsync >"${SAVE_ERROR}" 2>&1 || show_error
+dd if=/dev/zero of="${IMG_TMP}/part2.ext4" bs=512 count="${STORAGE_PART_COUNT}" conv=fsync >"${SAVE_ERROR}" 2>&1 || show_error
 
 # create filesystem on part2
 echo "image: creating filesystem on part2..."
@@ -112,6 +147,17 @@ e2fsck -n "${IMG_TMP}/part2.ext4" >"${SAVE_ERROR}" 2>&1 || show_error
 echo "image: merging part2 into disk image..."
 dd if="${IMG_TMP}/part2.ext4" of="${DISK}" bs=512 seek="${STORAGE_PART_START}" conv=fsync,notrunc >"${SAVE_ERROR}" 2>&1 || show_error
 
+# populate root ext4 partition (ext4 layout only)
+if [ "${ROOTFS_TYPE}" = "ext4" ]; then
+  echo "image: preparing root ext4 partition..."
+  # Set label and UUID on the ext4 rootfs image
+  tune2fs -L "${DISTRO_ROOTLABEL}" -U ${UUID_ROOT} "${RELEASE_DIR}/target/SYSTEM" >"${SAVE_ERROR}" 2>&1 || show_error
+
+  # Write root ext4 image into disk at ROOT_PART_START
+  echo "image: merging root ext4 into disk image..."
+  dd if="${RELEASE_DIR}/target/SYSTEM" of="${DISK}" bs=512 seek="${ROOT_PART_START}" conv=fsync,notrunc >"${SAVE_ERROR}" 2>&1 || show_error
+fi
+
 # create disk image for virtual appliance
 if [ "${PROJECT}" = "Generic" ]; then
   echo "image: creating open virtual appliance..."
@@ -123,7 +169,7 @@ fi
 echo "image: creating sparse file for part1..."
 SYSTEM_PART_COUNT=$((${SYSTEM_PART_END} - ${SYSTEM_PART_START} + 1))
 sync
-dd if=/dev/zero of="${IMG_TMP}/part1.fat" bs=512 count=0 seek="${SYSTEM_PART_COUNT}" conv=fsync >"${SAVE_ERROR}" 2>&1 || show_error
+dd if=/dev/zero of="${IMG_TMP}/part1.fat" bs=512 count="${SYSTEM_PART_COUNT}" conv=fsync >"${SAVE_ERROR}" 2>&1 || show_error
 
 shopt -s expand_aliases # enables alias expansion in script
 alias mcopy='mcopy -i "${IMG_TMP}/part1.fat" -o'
@@ -192,9 +238,11 @@ EOF
   # copy files
   echo "image: copying files to part1..."
   mcopy "${TARGET_IMG}/${BUILD_NAME}.kernel" "::/${KERNEL_NAME}" >"${SAVE_ERROR}" 2>&1 || show_error
-  mcopy "${TARGET_IMG}/${BUILD_NAME}.system" ::/SYSTEM >"${SAVE_ERROR}" 2>&1 || show_error
   mcopy "${RELEASE_DIR}/target/KERNEL.md5" "::/${KERNEL_NAME}.md5" >"${SAVE_ERROR}" 2>&1 || show_error
-  mcopy "${RELEASE_DIR}/target/SYSTEM.md5" ::/SYSTEM.md5 >"${SAVE_ERROR}" 2>&1 || show_error
+  if [ "${ROOTFS_TYPE}" != "ext4" ]; then
+    mcopy "${TARGET_IMG}/${BUILD_NAME}.system" ::/SYSTEM >"${SAVE_ERROR}" 2>&1 || show_error
+    mcopy "${RELEASE_DIR}/target/SYSTEM.md5" ::/SYSTEM.md5 >"${SAVE_ERROR}" 2>&1 || show_error
+  fi
 
   mmd EFI EFI/BOOT >"${SAVE_ERROR}" 2>&1 || show_error
   mcopy "${TOOLCHAIN}/share/syslinux/bootx64.efi" ::/EFI/BOOT >"${SAVE_ERROR}" 2>&1 || show_error
@@ -214,9 +262,11 @@ EOF
   # copy files
   echo "image: copying files to part1..."
   mcopy "${TARGET_IMG}/${BUILD_NAME}.kernel" "::/${KERNEL_NAME}" >"${SAVE_ERROR}" 2>&1 || show_error
-  mcopy "${TARGET_IMG}/${BUILD_NAME}.system" ::/SYSTEM >"${SAVE_ERROR}" 2>&1 || show_error
   mcopy "${RELEASE_DIR}/target/KERNEL.md5" "::/${KERNEL_NAME}.md5" >"${SAVE_ERROR}" 2>&1 || show_error
-  mcopy "${RELEASE_DIR}/target/SYSTEM.md5" ::/SYSTEM.md5 >"${SAVE_ERROR}" 2>&1 || show_error
+  if [ "${ROOTFS_TYPE}" != "ext4" ]; then
+    mcopy "${TARGET_IMG}/${BUILD_NAME}.system" ::/SYSTEM >"${SAVE_ERROR}" 2>&1 || show_error
+    mcopy "${RELEASE_DIR}/target/SYSTEM.md5" ::/SYSTEM.md5 >"${SAVE_ERROR}" 2>&1 || show_error
+  fi
 
   for f in bootcode.bin fixup.dat start.elf; do
     if [ -f "${RELEASE_DIR}/3rdparty/bootloader/$f" ]; then
@@ -254,9 +304,11 @@ elif [ "${BOOTLOADER}" = "u-boot" ]; then
 
   echo "image: copying files to part1..."
   mcopy "${TARGET_IMG}/${BUILD_NAME}.kernel" "::/${KERNEL_NAME}" >"${SAVE_ERROR}" 2>&1 || show_error
-  mcopy "${TARGET_IMG}/${BUILD_NAME}.system" ::/SYSTEM >"${SAVE_ERROR}" 2>&1 || show_error
   mcopy "${RELEASE_DIR}/target/KERNEL.md5" "::/${KERNEL_NAME}.md5" >"${SAVE_ERROR}" 2>&1 || show_error
-  mcopy "${RELEASE_DIR}/target/SYSTEM.md5" ::/SYSTEM.md5 >"${SAVE_ERROR}" 2>&1 || show_error
+  if [ "${ROOTFS_TYPE}" != "ext4" ]; then
+    mcopy "${TARGET_IMG}/${BUILD_NAME}.system" ::/SYSTEM >"${SAVE_ERROR}" 2>&1 || show_error
+    mcopy "${RELEASE_DIR}/target/SYSTEM.md5" ::/SYSTEM.md5 >"${SAVE_ERROR}" 2>&1 || show_error
+  fi
 
 elif [ "${BOOTLOADER}" = "arm-efi" ]; then
   # create bootloader configuration
@@ -272,9 +324,11 @@ elif [ "${BOOTLOADER}" = "arm-efi" ]; then
   # copy files
   echo "image: copying files to part1..."
   mcopy "${TARGET_IMG}/${BUILD_NAME}.kernel" "::/${KERNEL_NAME}"
-  mcopy "${TARGET_IMG}/${BUILD_NAME}.system" ::/SYSTEM
   mcopy "${RELEASE_DIR}/target/KERNEL.md5" "::/${KERNEL_NAME}.md5"
-  mcopy "${RELEASE_DIR}/target/SYSTEM.md5" ::/SYSTEM.md5
+  if [ "${ROOTFS_TYPE}" != "ext4" ]; then
+    mcopy "${TARGET_IMG}/${BUILD_NAME}.system" ::/SYSTEM
+    mcopy "${RELEASE_DIR}/target/SYSTEM.md5" ::/SYSTEM.md5
+  fi
 
 elif [ "${BOOTLOADER}" = "qcom-abl" ]; then
   # create bootloader configuration
@@ -290,9 +344,11 @@ elif [ "${BOOTLOADER}" = "qcom-abl" ]; then
   # copy files
   echo "image: copying files to part1..."
   mcopy "${TARGET_IMG}/${BUILD_NAME}.kernel" "::/${KERNEL_NAME}"
-  mcopy "${TARGET_IMG}/${BUILD_NAME}.system" ::/SYSTEM
   mcopy "${RELEASE_DIR}/target/KERNEL.md5" "::/${KERNEL_NAME}.md5"
-  mcopy "${RELEASE_DIR}/target/SYSTEM.md5" ::/SYSTEM.md5
+  if [ "${ROOTFS_TYPE}" != "ext4" ]; then
+    mcopy "${TARGET_IMG}/${BUILD_NAME}.system" ::/SYSTEM
+    mcopy "${RELEASE_DIR}/target/SYSTEM.md5" ::/SYSTEM.md5
+  fi
 
 fi # bootloader
 

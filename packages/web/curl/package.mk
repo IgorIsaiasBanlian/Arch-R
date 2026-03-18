@@ -46,7 +46,7 @@ PKG_CMAKE_OPTS_TARGET="-DENABLE_DEBUG=OFF \
                        -DCURL_USE_GNUTLS=OFF \
                        -DCURL_ENABLE_SSL=ON \
                        -DCURL_USE_MBEDTLS=OFF \
-                       -DCURL_CA_BUNDLE=/run/libreelec/cacert.pem \
+                       -DCURL_CA_BUNDLE=/run/archr/cacert.pem \
                        -DCURL_CA_PATH=none \
                        -DCURL_USE_LIBPSL=OFF \
                        -DCURL_USE_LIBSSH2=OFF \

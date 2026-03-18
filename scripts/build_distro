@@ -1,6 +1,6 @@
 #!/bin/bash
 # SPDX-License-Identifier: GPL-2.0
-# Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
+# Copyright (C) 2024-present ArchR (https://github.com/archr-linux/Arch-R)
 
 ###
 ### Simple script to build ROCKNX

@@ -125,20 +125,20 @@ jobs:
       - name: Clean retroarch
         run: |
           ./scripts/get_env > .env
-          docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ inputs.OWNER_LC }}/rocknix-build:latest" \
+          docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ inputs.OWNER_LC }}/archr-build:latest" \
             bash -c "./scripts/clean retroarch"
       # clean to rebuild emulationstation with credentials
       - name: Clean emulationstation
         run: |
           ./scripts/get_env > .env
-          docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ inputs.OWNER_LC }}/rocknix-build:latest" \
+          docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ inputs.OWNER_LC }}/archr-build:latest" \
             bash -c "./scripts/clean emulationstation"
 
       - name: build
         run: |
           ./scripts/get_env > .env
           set -e
-          { docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ inputs.OWNER_LC }}/rocknix-build:latest" \
+          { docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ inputs.OWNER_LC }}/archr-build:latest" \
             bash -c "./scripts/build_distro"; echo $? > docker_exit_code; } | tee output.log | grep -E  --color=never --line-buffered "^GET|^UNPACK|^BUILD|^INSTALL" || true
           exit_code=$(<docker_exit_code)
           exit $exit_code
@@ -150,25 +150,25 @@ jobs:
           name: output.logs (${{ inputs.DEVICE }}-aarch64-image)
           path: |
             output.log
-            ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/.threads/logs/
+            ./build.ArchR-${{ inputs.DEVICE }}.aarch64/.threads/logs/
 
       - name: Get date
         run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
 
       - uses: actions/upload-artifact@v7
         with:
-          name: ROCKNIX-image-${{ inputs.DEVICE }}-${{ env.DATE }}
+          name: ArchR-image-${{ inputs.DEVICE }}-${{ env.DATE }}
           path: |
-            target/ROCKNIX-*.img.gz
-            target/ROCKNIX-*.img.gz.sha256
+            target/ArchR-*.img.gz
+            target/ArchR-*.img.gz.sha256
           compression-level: 0
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v7
         with:
-          name: ROCKNIX-update-${{ inputs.DEVICE }}-${{ env.DATE }}
+          name: ArchR-update-${{ inputs.DEVICE }}-${{ env.DATE }}
           path: |
-            target/ROCKNIX-*.tar
-            target/ROCKNIX-*.tar.sha256
+            target/ArchR-*.tar
+            target/ArchR-*.tar.sha256
           compression-level: 0
           if-no-files-found: error

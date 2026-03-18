@@ -124,11 +124,11 @@ makeinstall_target() {
   mkdir -p ${INSTALL}/usr/sbin
     cp ${PKG_DIR}/scripts/kernel-overlays-setup ${INSTALL}/usr/sbin
 
-  mkdir -p ${INSTALL}/usr/lib/libreelec
-    cp ${PKG_DIR}/scripts/functions ${INSTALL}/usr/lib/libreelec
-    cp ${PKG_DIR}/scripts/fs-resize ${INSTALL}/usr/lib/libreelec
+  mkdir -p ${INSTALL}/usr/lib/archr
+    cp ${PKG_DIR}/scripts/functions ${INSTALL}/usr/lib/archr
+    cp ${PKG_DIR}/scripts/fs-resize ${INSTALL}/usr/lib/archr
     sed -e "s/@DISTRONAME@/${DISTRONAME}/g" \
-        -i ${INSTALL}/usr/lib/libreelec/fs-resize
+        -i ${INSTALL}/usr/lib/archr/fs-resize
 
   mkdir -p ${INSTALL}/usr/lib/systemd/system-generators/
     cp ${PKG_DIR}/scripts/libreelec-target-generator ${INSTALL}/usr/lib/systemd/system-generators/

@@ -8,7 +8,7 @@ on:
 
 jobs:
   update-mirror-sources:
-    if: (github.event_name != 'schedule') || (github.repository == 'ROCKNIX/distribution' && github.ref_name == 'next')
+    if: (github.event_name != 'schedule') || (github.repository == 'archr-linux/distribution' && github.ref_name == 'next')
     name: Update mirror sources
     runs-on: ubuntu-24.04
     env:
@@ -36,14 +36,14 @@ jobs:
         uses: corrupt952/actions-retry-command@v1.0.7
         with:
           command: |
-            PROJECT=ROCKNIX DEVICE=RK3326 ./tools/download-tool 
-            PROJECT=ROCKNIX DEVICE=RK3399 ./tools/download-tool 
-            PROJECT=ROCKNIX DEVICE=RK3566 ./tools/download-tool 
-            PROJECT=ROCKNIX DEVICE=RK3588 ./tools/download-tool 
-            PROJECT=ROCKNIX DEVICE=H700 ./tools/download-tool 
-            PROJECT=ROCKNIX DEVICE=S922X ./tools/download-tool 
-            PROJECT=ROCKNIX DEVICE=SM8250 ./tools/download-tool 
-            PROJECT=ROCKNIX DEVICE=SM8550 ./tools/download-tool
+            PROJECT=ArchR DEVICE=RK3326 ./tools/download-tool 
+            PROJECT=ArchR DEVICE=RK3399 ./tools/download-tool 
+            PROJECT=ArchR DEVICE=RK3566 ./tools/download-tool 
+            PROJECT=ArchR DEVICE=RK3588 ./tools/download-tool 
+            PROJECT=ArchR DEVICE=H700 ./tools/download-tool 
+            PROJECT=ArchR DEVICE=S922X ./tools/download-tool 
+            PROJECT=ArchR DEVICE=SM8250 ./tools/download-tool 
+            PROJECT=ArchR DEVICE=SM8550 ./tools/download-tool
           max_attempts: 6
           retry_interval: 10
       - name: print number of downloaded artifacts

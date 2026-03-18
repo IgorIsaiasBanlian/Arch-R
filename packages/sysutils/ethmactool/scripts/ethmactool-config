@@ -76,7 +76,7 @@ done
 
 if validate_mac ; then
   MAC=$(echo "$MAC" | sed 's/\(..\)/\1:/g' | cut -b-17)
-  echo "MAC=${MAC}" > /run/libreelec/ethmactool-$1
+  echo "MAC=${MAC}" > /run/archr/ethmactool-$1
   /usr/sbin/ip link set dev $1 down
   /usr/sbin/ip link set dev $1 address $MAC
   /usr/sbin/ip link set dev $1 up

@@ -195,8 +195,8 @@ main(){
   # Check if repo already exists and is valid
   _repo_exists_and_valid && exit 0
 
-  if [[ "${PKG_USETOKEN}" == "yes" && -n "${ROCKNIX_GHTOKEN}" ]]; then
-    PKG_URL="${PKG_URL/https:\/\//https:\/\/${ROCKNIX_GHTOKEN}@}"
+  if [[ "${PKG_USETOKEN}" == "yes" && -n "${ARCHR_GHTOKEN}" ]]; then
+    PKG_URL="${PKG_URL/https:\/\//https:\/\/${ARCHR_GHTOKEN}@}"
   fi
 
   # If not valid, proceed to get the repo

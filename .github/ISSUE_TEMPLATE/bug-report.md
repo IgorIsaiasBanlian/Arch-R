@@ -6,9 +6,9 @@ labels: ISSUE NEEDS REVIEW
 assignees: ''
 
 ---
-### Have you first reported the issue on the rocknix discord and checked rocknix.org for a solution?
-[ROCKNIX DISCORD](https://discord.gg/NG6wGmSe)
-<!-- Any issue created without first being discussed on our discord server will be closed automatically. -->
+### Have you first checked existing issues and documentation for a solution?
+[ArchR GitHub Issues](https://github.com/archr-linux/distribution/issues)
+<!-- Any issue created without sufficient information may be closed. -->
 
 ### Describe the bug
 <!-- A clear description of what the bug is. -->
@@ -20,7 +20,7 @@ Steps to reproduce the behavior:
 3. See error
 
 ### Information
- - ROCKNIX Version: [e.g. 20240517]
+ - ArchR Version: [e.g. 20260316]
  - Hardware Platform: [e.g. Powkiddy RGB20SX]
 
 ### Log file

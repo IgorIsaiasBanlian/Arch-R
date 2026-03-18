@@ -79,7 +79,7 @@ jobs:
             ./scripts/get_env > .env
             touch timestamp_before
             set -e
-            { docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ inputs.OWNER_LC }}/rocknix-build:latest" \
+            { docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ inputs.OWNER_LC }}/archr-build:latest" \
               bash -c "./scripts/build_mt qt6 modules"; echo $? > docker_exit_code; } | tee output.log | grep -E  --color=never --line-buffered "^GET|^UNPACK|^BUILD|^INSTALL" || true
             exit_code=$(<docker_exit_code)
             exit $exit_code
@@ -93,20 +93,20 @@ jobs:
           name: output.logs (${{ inputs.DEVICE }}-aarch64-qt6)
           path: |
             output.log
-            ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/.threads/logs/
+            ./build.ArchR-${{ inputs.DEVICE }}.aarch64/.threads/logs/
 
       - name: Clean ccache
         run: |
-          export CCACHE_DIR=./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/.ccache
-          ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/toolchain/bin/ccache -s -v
-          ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/toolchain/bin/ccache -M 2.0G
-          ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/toolchain/bin/ccache -c
-          ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/toolchain/bin/ccache -s -v
-          ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/toolchain/bin/ccache -z
+          export CCACHE_DIR=./build.ArchR-${{ inputs.DEVICE }}.aarch64/.ccache
+          ./build.ArchR-${{ inputs.DEVICE }}.aarch64/toolchain/bin/ccache -s -v
+          ./build.ArchR-${{ inputs.DEVICE }}.aarch64/toolchain/bin/ccache -M 2.0G
+          ./build.ArchR-${{ inputs.DEVICE }}.aarch64/toolchain/bin/ccache -c
+          ./build.ArchR-${{ inputs.DEVICE }}.aarch64/toolchain/bin/ccache -s -v
+          ./build.ArchR-${{ inputs.DEVICE }}.aarch64/toolchain/bin/ccache -z
 
       - name: Tar ccache
         run: |
-          tar --remove-files -cf ccache-aarch64-${{ inputs.DEVICE }}-qt6.tar ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/.ccache 
+          tar --remove-files -cf ccache-aarch64-${{ inputs.DEVICE }}-qt6.tar ./build.ArchR-${{ inputs.DEVICE }}.aarch64/.ccache 
 
       - name: Save ccache
         uses: ncipollo/release-action@v1
@@ -123,8 +123,8 @@ jobs:
 
       - name: Compress directory
         run: |
-          tar --zstd --exclude='build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/build' -cf build.qt6.tar.zst \
-          build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/          
+          tar --zstd --exclude='build.ArchR-${{ inputs.DEVICE }}.aarch64/build' -cf build.qt6.tar.zst \
+          build.ArchR-${{ inputs.DEVICE }}.aarch64/          
 
       - uses: actions/upload-artifact@v7
         with:

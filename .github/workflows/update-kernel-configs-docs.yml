@@ -5,7 +5,7 @@ on:
   workflow_call:
   push:
     paths:
-      - 'projects/ROCKNIX/packages/linux/package.mk'
+      - 'projects/ArchR/packages/linux/package.mk'
     branches:
       - next
 
@@ -25,23 +25,23 @@ jobs:
       matrix:
         include:
           - device: RK3326
-            project: ROCKNIX
+            project: ArchR
           - device: RK3399
-            project: ROCKNIX
+            project: ArchR
           - device: RK3566
-            project: ROCKNIX
+            project: ArchR
           - device: RK3588
-            project: ROCKNIX
+            project: ArchR
           - device: S922X
-            project: ROCKNIX
+            project: ArchR
           - device: H700
-            project: ROCKNIX
+            project: ArchR
           - device: SM8250
-            project: ROCKNIX
+            project: ArchR
           - device: SM8550
-            project: ROCKNIX
+            project: ArchR
           - device: SM8650
-            project: ROCKNIX
+            project: ArchR
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout

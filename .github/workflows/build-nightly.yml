@@ -66,7 +66,7 @@ on:
 
 jobs:
   set-envs:
-    if: (github.event_name != 'schedule') || (github.repository == 'ROCKNIX/distribution' && github.ref_name == 'next')
+    if: (github.event_name != 'schedule') || (github.repository == 'archr-linux/distribution' && github.ref_name == 'next')
     environment:
       name: ${{ github.event_name == 'pull_request' && 'pr-approval' || 'auto' }}
     runs-on: ubuntu-24.04
@@ -107,12 +107,12 @@ jobs:
               if [[ -n "$SELECTED_MATRIX" ]]; then
                 SELECTED_MATRIX="$SELECTED_MATRIX,"
               fi
-              SELECTED_MATRIX="$SELECTED_MATRIX{\"device\":\"$D\",\"project\":\"ROCKNIX\"}"
+              SELECTED_MATRIX="$SELECTED_MATRIX{\"device\":\"$D\",\"project\":\"ArchR\"}"
             fi
           done
           
           if [[ -z "$SELECTED_MATRIX" ]]; then
-            MATRIX='[{"device":"RK3326","project":"ROCKNIX"},{"device":"RK3399","project":"ROCKNIX"},{"device":"RK3566","project":"ROCKNIX"},{"device":"RK3588","project":"ROCKNIX"},{"device":"S922X","project":"ROCKNIX"},{"device":"H700","project":"ROCKNIX"},{"device":"SDM845","project":"ROCKNIX"},{"device":"SM8250","project":"ROCKNIX"},{"device":"SM8550","project":"ROCKNIX"},{"device":"SM8650","project":"ROCKNIX"}]'
+            MATRIX='[{"device":"RK3326","project":"ArchR"},{"device":"RK3399","project":"ArchR"},{"device":"RK3566","project":"ArchR"},{"device":"RK3588","project":"ArchR"},{"device":"S922X","project":"ArchR"},{"device":"H700","project":"ArchR"},{"device":"SDM845","project":"ArchR"},{"device":"SM8250","project":"ArchR"},{"device":"SM8550","project":"ArchR"},{"device":"SM8650","project":"ArchR"}]'
           else
             MATRIX="[$SELECTED_MATRIX]"
           fi
@@ -120,7 +120,7 @@ jobs:
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
   build-docker:
-    if: github.event_name != 'schedule' || (github.repository == 'ROCKNIX/distribution' && github.ref_name == 'next')
+    if: github.event_name != 'schedule' || (github.repository == 'archr-linux/distribution' && github.ref_name == 'next')
     name: Docker
     needs: set-envs
     uses: ./.github/workflows/build-docker-image.yml
@@ -128,7 +128,7 @@ jobs:
       OWNER_LC: ${{ needs.set-envs.outputs.OWNER_LC }}
 
   build-devices:
-    if: (github.event_name != 'schedule') || (github.repository == 'ROCKNIX/distribution' && github.ref_name == 'next')
+    if: (github.event_name != 'schedule') || (github.repository == 'archr-linux/distribution' && github.ref_name == 'next')
     name: Build Devices
     needs:
       - set-envs
@@ -147,7 +147,7 @@ jobs:
       OFFICIAL: ${{ needs.set-envs.outputs.OFFICIAL }}
 
   rerun-failed-jobs:
-    if: always() && !cancelled() && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) && fromJSON(github.run_attempt) < 3 && github.ref_name == 'next' && (github.event_name != 'schedule' || github.repository == 'ROCKNIX/distribution')
+    if: always() && !cancelled() && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) && fromJSON(github.run_attempt) < 3 && github.ref_name == 'next' && (github.event_name != 'schedule' || github.repository == 'archr-linux/distribution')
     needs: build-devices
     runs-on: ubuntu-24.04
     steps:
@@ -157,7 +157,7 @@ jobs:
         run: gh workflow run retry-workflow.yml -F run_id=${{ github.run_id }}
 
   release-nightly:
-     if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && github.repository_owner == 'ROCKNIX' && needs.set-envs.outputs.NIGHTLY == 'yes' && github.event_name != 'pull_request' }}
+     if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && github.repository_owner == 'archr-linux' && needs.set-envs.outputs.NIGHTLY == 'yes' && github.event_name != 'pull_request' }}
      name: Release nightly
      needs: build-devices
      runs-on: ubuntu-24.04
@@ -181,12 +181,12 @@ jobs:
      - name: Download artifacts
        uses: actions/download-artifact@v8
        with:
-         pattern: ROCKNIX-image*
+         pattern: ArchR-image*
          merge-multiple: true
      - name: Download artifacts
        uses: actions/download-artifact@v8
        with:
-         pattern: ROCKNIX-update*
+         pattern: ArchR-update*
          merge-multiple: true
      - name: get date
        run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
@@ -206,7 +206,7 @@ jobs:
          if [ $(git rev-list $COMMIT..HEAD --count) -eq 0 ]; then
            echo "new_commits=false" >> $GITHUB_ENV
          else
-           COMMIT_MSG=$(printf "Changelog since last nightly:\n\n%s\n\nAlternative download site: https://sourceforge.net/projects/rocknix/files/nightly/%s/" \
+           COMMIT_MSG=$(printf "Changelog since last nightly:\n\n%s\n\nAlternative download site: https://sourceforge.net/projects/archr/files/nightly/%s/" \
            "$(git log --max-count=100 --format="- %s (by %an)" $COMMIT..$GITHUB_SHA | grep -v "Merge pull request")" \
            "$(date +%Y%m%d)")
            echo "commit_msg<<EOF" >> "$GITHUB_OUTPUT"
@@ -222,7 +222,7 @@ jobs:
        uses: ncipollo/release-action@v1
        with:
          tag: nightly-${{ env.DATE }}
-         artifacts: ROCKNIX-*
+         artifacts: ArchR-*
          allowUpdates: true
          makeLatest: true
          prerelease: true
@@ -242,11 +242,11 @@ jobs:
        run: |
          FILES=$(find . -type f \( -name "*.tar" -o -name "*.img.gz" -o -name "*.sha256" \))
          for FILE in $FILES; do
-           rsync -e ssh "$FILE" tiopex@frs.sourceforge.net:/home/frs/project/rocknix/nightly/${{ env.DATE }}/
+           rsync -e ssh "$FILE" tiopex@frs.sourceforge.net:/home/frs/project/archr/nightly/${{ env.DATE }}/
          done         
 
   release-official:
-    if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && github.repository_owner == 'ROCKNIX' && needs.set-envs.outputs.OFFICIAL == 'yes' }}
+    if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && github.repository_owner == 'archr-linux' && needs.set-envs.outputs.OFFICIAL == 'yes' }}
     name: Release official
     needs: build-devices
     runs-on: ubuntu-24.04
@@ -269,12 +269,12 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v8
         with:
-          pattern: ROCKNIX-image*
+          pattern: ArchR-image*
           merge-multiple: true
       - name: Download artifacts
         uses: actions/download-artifact@v8
         with:
-          pattern: ROCKNIX-update*
+          pattern: ArchR-update*
           merge-multiple: true
       - name: get date
         run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
@@ -302,7 +302,7 @@ jobs:
         with:
           tag: ${{ env.DATE }}
           commit: ${{ github.sha }}
-          artifacts: ROCKNIX-*
+          artifacts: ArchR-*
           allowUpdates: false
           makeLatest: true
           token: ${{ steps.app-token.outputs.token }}

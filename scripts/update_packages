@@ -4,16 +4,16 @@
 
 # Based on work by ToKe79 and Shanti Gilbert
 
-OPTIONS="distributions/ROCKNIX/options"
-PACKAGES=("projects/ROCKNIX/packages/virtual/emulators/package.mk" \
-          "projects/ROCKNIX/packages/virtual/es-themes/package.mk" \
-          "projects/ROCKNIX/packages/virtual/gamesupport/package.mk" )
+OPTIONS="distributions/ArchR/options"
+PACKAGES=("projects/ArchR/packages/virtual/emulators/package.mk" \
+          "projects/ArchR/packages/virtual/es-themes/package.mk" \
+          "projects/ArchR/packages/virtual/gamesupport/package.mk" )
 BLOCKLIST="config/blocklist"
 
 update_packages() {
   for p in $PACKAGES_ALL
   do
-    PKG_PATH="./projects/ROCKNIX/packages"
+    PKG_PATH="./projects/ArchR/packages"
     echo "Operating on ${p}"
     f=$(find ${PKG_PATH} -type d -name "${p}")
     if [ "$(grep ${p} ${BLOCKLIST})" ]

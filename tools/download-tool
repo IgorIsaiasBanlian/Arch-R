@@ -26,7 +26,7 @@ esac
 
 declare -A fetched_packages
 
-for package in $(find projects/ROCKNIX/packages/ -name package.mk); do
+for package in $(find projects/ArchR/packages/ -name package.mk); do
   if [[ "$package" == *addons* && -z "$ALL_PACKAGES" ]]; then
     continue
   fi
