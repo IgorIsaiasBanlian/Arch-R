@@ -19,11 +19,11 @@ pre_make_target() {
 }
 
 make_target() {
+  cd ${PKG_BUILD}/drivers/aic8800
   make V=1 \
        ARCH=${TARGET_KERNEL_ARCH} \
        KDIR=$(kernel_path) \
-       CROSS_COMPILE=${TARGET_KERNEL_PREFIX} \
-       -C ${PKG_BUILD}/drivers/aic8800
+       CROSS_COMPILE=${TARGET_KERNEL_PREFIX}
 }
 
 makeinstall_target() {
@@ -31,9 +31,9 @@ makeinstall_target() {
     find ${PKG_BUILD}/drivers/aic8800 -name "*.ko" \
       -exec cp {} ${INSTALL}/$(get_full_module_dir)/kernel/drivers/net/wireless/ \;
 
-  # Install firmware
-  mkdir -p ${INSTALL}/usr/lib/firmware/aic8800DC
-    cp -r ${PKG_BUILD}/fw/aic8800DC/* ${INSTALL}/usr/lib/firmware/aic8800DC/
+  # Install firmware to kernel-overlays (build system symlinks /usr/lib/firmware there)
+  mkdir -p ${INSTALL}/$(get_full_firmware_dir)/aic8800DC
+    cp -r ${PKG_BUILD}/fw/aic8800DC/* ${INSTALL}/$(get_full_firmware_dir)/aic8800DC/
 
   # Install udev rules for AIC8800 USB mode switching
   mkdir -p ${INSTALL}/usr/lib/udev/rules.d
