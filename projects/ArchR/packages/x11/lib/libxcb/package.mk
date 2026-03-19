@@ -8,5 +8,7 @@ PKG_DEPENDS_HOST="toolchain:host util-macros:host Python3:host xcb-proto:host li
 post_configure_target() {
   # Disable libtool relink during install - fails in cross-compilation
   # because the linker rejects host /usr/lib as unsafe
-  sed -i 's|^need_relink=yes|need_relink=no|g' ${PKG_BUILD}/.${TARGET_NAME}/libtool
+  for lt in ${PKG_BUILD}/.*/libtool; do
+    [ -f "$lt" ] && sed -i 's|need_relink=yes|need_relink=no|g' "$lt"
+  done
 }

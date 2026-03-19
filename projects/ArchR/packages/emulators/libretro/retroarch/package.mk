@@ -91,9 +91,23 @@ else
 fi
 
 pre_configure_target() {
-  CFLAGS+=" -DUDEV_TOUCH_SUPPORT"
-  CXXFLAGS+=" -DUDEV_TOUCH_SUPPORT"
+  CFLAGS+=" -DUDEV_TOUCH_SUPPORT -I${SYSROOT_PREFIX}/usr/include/spa-0.2 -I${SYSROOT_PREFIX}/usr/include/pipewire-0.3"
+  CXXFLAGS+=" -DUDEV_TOUCH_SUPPORT -I${SYSROOT_PREFIX}/usr/include/spa-0.2 -I${SYSROOT_PREFIX}/usr/include/pipewire-0.3"
   TARGET_CONFIGURE_OPTS=""
+
+  # Tell retroarch configure this is a cross-compilation
+  # Without this, qb/config.libs.sh adds -L/usr/lib64 from the host
+  export CROSS_COMPILE="${TARGET_PREFIX}"
+
+  # Fix retroarch qb cross-compilation: patch config.libs.sh to use sysroot paths
+  if [ -n "${SYSROOT_PREFIX}" ]; then
+    sed -i "s|INCLUDES='usr/include usr/local/include'|INCLUDES='${SYSROOT_PREFIX}/usr/include ${SYSROOT_PREFIX}/usr/local/include'|" ${PKG_BUILD}/qb/config.libs.sh
+  fi
+
+  # Disable pipewire for arm 32-bit compat (headers not in arm sysroot)
+  if [ "${TARGET_ARCH}" = "arm" ]; then
+    PKG_CONFIGURE_OPTS_TARGET+=" --disable-pipewire"
+  fi
 
   cd ${PKG_BUILD}
 }
