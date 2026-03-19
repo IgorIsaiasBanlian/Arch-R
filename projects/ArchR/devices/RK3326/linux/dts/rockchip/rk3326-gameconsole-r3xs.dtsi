@@ -481,7 +481,7 @@
 	};
 
 	u2phy_otg: otg-port {
-		status = "disabled";
+		status = "okay";
 	};
 };
 
