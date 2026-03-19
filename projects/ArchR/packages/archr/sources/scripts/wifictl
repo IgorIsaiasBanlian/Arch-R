@@ -18,7 +18,8 @@ IWD_AP_CFG_DIR="/storage/.cache/iwd/ap"
 WIFI_TYPE=$(get_setting wifi.adhoc.enabled)
 NETWORK_ADDRESS="192.168.80"
 ADHOC_CLIENT_ID=$(get_setting wifi.adhoc.id)
-WIFI_DEV="$(ls /sys/class/net | grep -m1 ^wlan)"
+# Detect any wireless interface (wlan*, wlx*, wlp*)
+WIFI_DEV="$(ls /sys/class/net | grep -m1 '^wl')"
 DEFAULT_CHAN="6"
 
 # Exit the script if the WiFi device isn't available
@@ -46,11 +47,11 @@ fi
 
 # Wait for iwd to start and have a device available
 wait_for_wifi() {
-  for i in $(seq 1 5); do
-    iwctl device list | grep -q "${WIFI_DEV}" && break
+  for i in $(seq 1 15); do
+    iwctl device list 2>/dev/null | grep -q "${WIFI_DEV}" && break
     sleep 1
   done
-  [ -n "${COUNTRY}" ] && iw reg set "${COUNTRY}"
+  [ -n "${COUNTRY}" ] && iw reg set "${COUNTRY}" 2>/dev/null
 }
 
 # lists all wifi networks
@@ -62,9 +63,30 @@ list_wifi() {
 connect_wifi() {
   wait_for_wifi
 
-  iwctl device ${WIFI_DEV} set-property Mode station
-  # Connect to the network.
-  iwctl --passphrase "${PSK}" station ${WIFI_DEV} connect "${SSID}" 2>/dev/null
+  iwctl device ${WIFI_DEV} set-property Mode station 2>/dev/null
+  sleep 1
+
+  # Create iwd network profile for persistent connection
+  IWD_DIR="/storage/.cache/iwd"
+  mkdir -p "${IWD_DIR}"
+  if [ -n "${PSK}" ]; then
+    printf '[Security]\nPassphrase=%s\n' "${PSK}" > "${IWD_DIR}/${SSID}.psk"
+  else
+    printf '[Security]\n' > "${IWD_DIR}/${SSID}.open"
+  fi
+
+  # Scan and connect
+  iwctl station ${WIFI_DEV} scan 2>/dev/null
+  sleep 2
+  iwctl station ${WIFI_DEV} connect "${SSID}" 2>/dev/null
+
+  # Wait for connection
+  for i in $(seq 1 15); do
+    STATE=$(iwctl station ${WIFI_DEV} show 2>/dev/null | grep -i "state" | awk '{print $NF}')
+    [ "${STATE}" = "connected" ] && return 0
+    sleep 1
+  done
+  return 1
 }
 
 create_adhoc() {
@@ -119,7 +141,7 @@ case "${1}" in
       create_adhoc >/dev/null 2>&1
     else
       destroy_adhoc >/dev/null 2>&1
-      connect_wifi >/dev/null 2>&1
+      connect_wifi
     fi
   ;;
   disconnect)

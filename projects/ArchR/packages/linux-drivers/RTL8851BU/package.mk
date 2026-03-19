@@ -12,6 +12,10 @@ PKG_IS_KERNEL_PKG="yes"
 
 pre_make_target() {
   unset LDFLAGS
+
+  # Switch platform for cross-compilation
+  sed -i 's/CONFIG_PLATFORM_I386_PC = y/CONFIG_PLATFORM_I386_PC = n/' ${PKG_BUILD}/Makefile
+  sed -i 's/CONFIG_PLATFORM_ARM64_PC = n/CONFIG_PLATFORM_ARM64_PC = y/' ${PKG_BUILD}/Makefile
 }
 
 make_target() {

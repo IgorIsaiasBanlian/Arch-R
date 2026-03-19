@@ -16,6 +16,7 @@
     export CONNMAN_MAIN="--config=/etc/connman/main.conf"
   fi
 
+
 # switch resolv.conf management to connman and use current contents
 # as a fallback
 if [ -f /run/archr/resolv.conf ]; then

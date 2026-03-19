@@ -36,7 +36,7 @@
     KERNEL_MAKE_EXTRACMD=" $(get_kernel_make_extracmd)"
 
   # Kernel cmdline
-    EXTRA_CMDLINE="quiet loglevel=0 vt.global_cursor_default=0 consoleblank=0 console=ttyS2,1500000 systemd.show_status=false systemd.debug_shell=ttyS2"
+    EXTRA_CMDLINE="quiet loglevel=0 vt.global_cursor_default=0 consoleblank=0 net.ifnames=0 console=ttyS2,1500000 systemd.show_status=false systemd.debug_shell=ttyS2"
 
   # Bootloader to use (syslinux / u-boot)
     BOOTLOADER="u-boot"
@@ -61,7 +61,7 @@
   # for a list of additional drivers see packages/linux-drivers
   # Space separated list is supported,
   # e.g. ADDITIONAL_DRIVERS="DRIVER1 DRIVER2"
-    ADDITIONAL_DRIVERS="RTL8812AU RTL8814AU RTL8821AU RTL8821CU RTL88x2BU RTL8851BU RTL8831 AIC8800 mali-bifrost"
+    ADDITIONAL_DRIVERS="RTL8812AU RTL8814AU RTL8821AU RTL8821CU RTL88x2BU RTL8831 AIC8800 mali-bifrost"
 
   # Additional Firmware to use ( )
   # Space separated list is supported,
