@@ -24,7 +24,7 @@ if [ ! "${OPENGLES_SUPPORT}" = no ]; then
   PKG_CMAKE_OPTS_TARGET+=" -DGLES2=1"
 fi
 
-PKG_CMAKE_OPTS_TARGET+=" -DArchR=1 \
+PKG_CMAKE_OPTS_TARGET+=" -DARCHR=1 \
                          -DDISABLE_KODI=1 \
                          -DENABLE_FILEMANAGER=0 \
                          -DCEC=0 \
