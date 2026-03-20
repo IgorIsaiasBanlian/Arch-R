@@ -135,6 +135,10 @@ for key in "${ORIG_ORDER[@]}"; do
     generate_from_dts "$DTS_DIR/$dts" "$OUTPUT_ORIG/${key}.dtbo" "" "$key"
 done
 
+# Panel 6: no DTS source, use stock DTB
+log "Original panel6: R36S/Panel 6/rk3326-r35s-linux.dtb"
+generate_from_dtb "${ROOT_DIR}/config/archr-dts/R36S-DTB/R36S/Panel 6/rk3326-r35s-linux.dtb" "$OUTPUT_ORIG/panel6.dtbo" "" "panel6"
+
 #------------------------------------------------------------------------------
 # Clone R36S panels (pre-compiled DTBs)
 #------------------------------------------------------------------------------
