@@ -36,7 +36,7 @@
     KERNEL_MAKE_EXTRACMD=" $(get_kernel_make_extracmd)"
 
   # Kernel cmdline
-    EXTRA_CMDLINE="quiet loglevel=0 vt.global_cursor_default=0 consoleblank=0 net.ifnames=0 console=ttyS2,1500000 systemd.show_status=false systemd.debug_shell=ttyS2"
+    EXTRA_CMDLINE="quiet console=ttyS2,1500000 console=tty0 loglevel=0 vt.global_cursor_default=0 consoleblank=0 net.ifnames=0 systemd.show_status=false"
 
   # Bootloader to use (syslinux / u-boot)
     BOOTLOADER="u-boot"
@@ -79,7 +79,7 @@
     ZRAM_COMPRESSION_ALGO="lzo-rle"
 
   # ZRAM Size
-    ZRAM_SWAP_SIZE="0"
+    ZRAM_SWAP_SIZE="512"
 
   # Disk Swap
     SWAP_FILE_SIZE="0"

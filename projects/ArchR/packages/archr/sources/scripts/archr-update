@@ -1,13 +1,13 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0
-# Copyright (C) 2024-present ArchR (https://github.com/archr-linux/Arch-R)
+# Copyright (C) 2026 ArchR (https://github.com/archr-linux/Arch-R)
 
 . /etc/profile
 
 BRANCH="$(get_setting updates.branch)"
 FORCE="$(get_setting updates.force)"
 
-ENDPOINT_URL="https://update.archr.org"
+ENDPOINT_URL="https://update.arch-r.io"
 
 MACHINEIDFILE=/storage/.cache/systemd-machine-id
 USERID=$(cat ${MACHINEIDFILE})

@@ -131,6 +131,19 @@ mount_common() {
 
   MOUNT_TARGET="$1"
 
+  # If device path /dev/mmcblkXpY doesn't exist, try swapping mmcblk0<->mmcblk1
+  case "${MOUNT_TARGET}" in
+    /dev/mmcblk*)
+      if [ ! -b "${MOUNT_TARGET}" ]; then
+        case "${MOUNT_TARGET}" in
+          /dev/mmcblk0*) ALT_TARGET=$(echo "${MOUNT_TARGET}" | sed 's/mmcblk0/mmcblk1/') ;;
+          /dev/mmcblk1*) ALT_TARGET=$(echo "${MOUNT_TARGET}" | sed 's/mmcblk1/mmcblk0/') ;;
+        esac
+        [ -b "${ALT_TARGET}" ] && MOUNT_TARGET="${ALT_TARGET}"
+      fi
+      ;;
+  esac
+
   for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
     ERR_ENV=1
 

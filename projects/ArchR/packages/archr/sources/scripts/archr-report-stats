@@ -7,7 +7,7 @@
 MACHINEIDFILE=/storage/.cache/systemd-machine-id
 USERID=$(cat ${MACHINEIDFILE})
 
-ENDPOINT_URL="https://stats.archr.org"
+ENDPOINT_URL="https://stats.arch-r.io"
 MAX_RETRIES=5
 RETRY_DELAY=60
 

@@ -7,7 +7,7 @@ assignees: ''
 
 ---
 ### Have you first checked existing issues and documentation for a solution?
-[ArchR GitHub Issues](https://github.com/archr-linux/distribution/issues)
+[ArchR GitHub Issues](https://github.com/archr-linux/Arch-R/issues)
 <!-- Any issue created without sufficient information may be closed. -->
 
 ### Describe the bug
