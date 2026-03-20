@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="distributions/ArchR/logos/archr-logo.png" width="280" alt="Arch R">
+  <img src="distributions/ArchR/logos/archr-logo.png" width="280" alt="Arch R" style="background:#000">
 </p>
 
 <p align="center">
@@ -14,7 +14,7 @@
 
 ---
 
-Arch R is a custom Linux distribution for the **R36S** handheld gaming console and all its variants, built on top of [ROCKNIX](https://github.com/ROCKNIX/distribution) with an Arch Linux-based build environment. It supports **16 board profiles** and **20 display panels** across original and clone hardware.
+Arch R is a custom Linux distribution for the **R36S** handheld gaming console and all its variants, built on top of [ROCKNIX](https://github.com/ROCKNIX/distribution) with an **Arch Linux-based** build environment. It supports **16 board profiles** and **20 display panels** across original and clone hardware.
 
 ## Features
 
