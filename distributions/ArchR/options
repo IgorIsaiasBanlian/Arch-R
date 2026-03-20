@@ -23,13 +23,13 @@
   DESCRIPTION="Arch R - Gaming OS for R36S"
 
 # Distribution Home URL
-  HOME_URL="https://github.com/ArchR"
+  HOME_URL="https://arc-r.io"
 
 # Documentation URL
-  WIKI_URL="https://github.com/ArchR"
+  WIKI_URL="https://arch-r.io/docs/guide/"
 
 # Where to report bugs
-  BUG_REPORT_URL="https://github.com/ArchR"
+  BUG_REPORT_URL="https://github.com/archr-linux/Arch-R/issues"
 
 # Root password to integrate in the target system
   ROOT_PASSWORD="archr"

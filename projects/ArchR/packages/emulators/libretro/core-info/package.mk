@@ -30,7 +30,10 @@ PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
-  ${TOOLCHAIN}/bin/rename -v mednafen beetle ${PKG_BUILD}/*.info
+  # Rename only if mednafen files still exist (idempotent for compat rebuilds)
+  if ls ${PKG_BUILD}/mednafen*.info 1>/dev/null 2>&1; then
+    ${TOOLCHAIN}/bin/rename -v mednafen beetle ${PKG_BUILD}/*.info
+  fi
   cp ${PKG_BUILD}/*.info ${INSTALL}/usr/lib/libretro/
   cp ${PKG_BUILD}/pcsx_rearmed_libretro.info ${INSTALL}/usr/lib/libretro/pcsx_rearmed32_libretro.info
   cp ${PKG_BUILD}/flycast_libretro.info ${INSTALL}/usr/lib/libretro/flycast2021_libretro.info

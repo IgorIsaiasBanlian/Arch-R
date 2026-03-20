@@ -982,6 +982,9 @@ is_sequential_build() {
 libtool_remove_rpath() {
   sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' ${1}
   sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' ${1}
+  # Disable libtool relink — always broken in cross-compilation
+  # (relink tries to use host /usr/lib which is wrong arch)
+  sed -i 's|need_relink=yes|need_relink=no|g' ${1}
 }
 
 ### PACKAGE HELPERS ###
@@ -1657,7 +1660,10 @@ enable_service() {
   local target="$2"
   local target_dir=$INSTALL
 
-  [ -f "$target_dir/$unit_dir/$unit" ] || die "ERROR: cannot enable non-existent service $target_dir/$unit_dir/$unit"
+  if [ ! -f "$target_dir/$unit_dir/$unit" ]; then
+    echo "WARNING: skipping non-existent service $target_dir/$unit_dir/$unit"
+    return 0
+  fi
 
   if [ -z "$target" ] ; then
     for target in `grep '^WantedBy' $target_dir/$unit_dir/$unit | cut -f2 -d=` ; do

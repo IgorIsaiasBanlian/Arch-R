@@ -380,6 +380,14 @@ fi
 
 pkg_call_exists_opt post_configure_${TARGET} && pkg_call
 
+# Globally disable libtool relink for cross-compilation targets
+# Relink tries to use host /usr/lib which has wrong-arch libraries
+if [ "${TARGET}" = "target" ] || [ "${TARGET}" = "init" ]; then
+  for _lt in $(find ${PKG_BUILD} -name libtool -type f 2>/dev/null); do
+    sed -i 's|need_relink=yes|need_relink=no|g' "${_lt}" 2>/dev/null
+  done
+fi
+
 record_timestamp BUILD_MAKE
 
 # make
