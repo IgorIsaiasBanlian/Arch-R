@@ -55,7 +55,7 @@ case ${DEVICE} in
 esac
 
 if [ "${DISPLAYSERVER}" = "wl" ]; then
-  PKG_DEPENDS_TARGET+=" wayland"
+  PKG_DEPENDS_TARGET+=" wayland wayland-protocols wayland:host"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-wayland"
   case ${ARCH} in
     arm)
@@ -103,6 +103,11 @@ pre_configure_target() {
   if [ -n "${SYSROOT_PREFIX}" ]; then
     sed -i "s|INCLUDES='usr/include usr/local/include'|INCLUDES='${SYSROOT_PREFIX}/usr/include ${SYSROOT_PREFIX}/usr/local/include'|" ${PKG_BUILD}/qb/config.libs.sh
   fi
+
+  # Ensure retroarch configure finds pkg-config (it looks for ${CROSS_COMPILE}pkg-config which doesn't exist)
+  export PKG_CONF_PATH="${TOOLCHAIN}/bin/pkg-config"
+  # Ensure pkg-config finds wayland-protocols in share/pkgconfig and wayland-scanner in toolchain
+  export PKG_CONFIG_PATH="${SYSROOT_PREFIX}/usr/lib/pkgconfig:${SYSROOT_PREFIX}/usr/share/pkgconfig:${TOOLCHAIN}/lib/pkgconfig:${TOOLCHAIN}/share/pkgconfig"
 
   # Disable pipewire for arm 32-bit compat (headers not in arm sysroot)
   if [ "${TARGET_ARCH}" = "arm" ]; then

@@ -1,5 +1,7 @@
 -include $(HOME)/.archr/options
 
+export OFFICIAL
+
 all: world
 
 system:
@@ -36,8 +38,8 @@ kconfig-menuconfig-%:
 
 RK3326:
 	unset DEVICE_ROOT
-	PROJECT=ArchR DEVICE=RK3326 ARCH=arm ./scripts/build_distro
-	PROJECT=ArchR DEVICE=RK3326 ARCH=aarch64 ./scripts/build_distro
+	OFFICIAL=$(if $(filter y yes Y YES 1,$(OFFICIAL)),yes,) PROJECT=ArchR DEVICE=RK3326 ARCH=arm ./scripts/build_distro
+	OFFICIAL=$(if $(filter y yes Y YES 1,$(OFFICIAL)),yes,) PROJECT=ArchR DEVICE=RK3326 ARCH=aarch64 ./scripts/build_distro
 
 update:
 	PROJECT=ArchR DEVICE=RK3326 ARCH=aarch64 ./scripts/update_packages
@@ -90,9 +92,6 @@ docker-%: INTERACTIVE=$(shell [ -t 0 ] && echo "-it")
 # By default pass through anything after `docker-` back into `make`
 docker-%: COMMAND=make $*
 
-# Get .env file ready
-docker-%: $(shell ./scripts/get_env > .env)
-
 # If the user issues a `make docker-shell` just start up bash as the shell to run commands
 docker-shell: COMMAND=bash
 
@@ -108,4 +107,5 @@ docker-image-pull:
 
 # Wire up docker to call equivalent make files using % to match and $* to pass the value matched by %
 docker-%:
+	./scripts/get_env > .env
 	BUILD_DIR="$(DOCKER_WORK_DIR)" $(DOCKER_CMD) run $(PODMAN_ARGS) $(INTERACTIVE) --init --env-file .env --rm --user $(UID):$(GID) $(GLOBAL_SETTINGS) $(LOCAL_SSH_KEYS_FILE) $(EMULATIONSTATION_SRC) -v "$(PWD)":"$(DOCKER_WORK_DIR)" -v /tmp:/tmp -w "$(DOCKER_WORK_DIR)" $(DOCKER_EXTRA_OPTS) $(DOCKER_IMAGE) $(COMMAND)

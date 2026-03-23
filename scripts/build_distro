@@ -8,6 +8,9 @@
 
 set -e
 
+# Export OFFICIAL so it reaches scripts/image via make
+[ -n "${OFFICIAL}" ] && export OFFICIAL
+
 scripts/checkdeps
 
 if [ -z "${ARCH}" ]; then

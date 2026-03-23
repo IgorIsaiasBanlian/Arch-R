@@ -4,6 +4,11 @@
 # Copyright (C) 2019-present Shanti Gilbert (https://github.com/shantigilbert)
 # Copyright (C) 2023 JELOS (https://github.com/JustEnoughLinuxOS)
 
+# Persist debug log to storage (survives reboot)
+RUNEMU_DEBUG="/storage/.cache/log/runemu-debug.log"
+exec 2>>"${RUNEMU_DEBUG}"
+set -x
+
 # Source predefined functions and variables
 . /etc/profile
 . /etc/os-release
