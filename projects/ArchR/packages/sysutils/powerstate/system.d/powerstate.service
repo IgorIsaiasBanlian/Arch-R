@@ -8,8 +8,8 @@ StartLimitIntervalSec=0
 Environment=HOME=/storage
 EnvironmentFile=/etc/profile
 ExecStart=/usr/bin/powerstate
-Restart=always
-RestartSec=1
+Restart=on-failure
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target

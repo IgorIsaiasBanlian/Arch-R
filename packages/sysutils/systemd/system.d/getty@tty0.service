@@ -8,8 +8,7 @@ ConditionPathExists=/dev/tty0
 [Service]
 ExecStart=-/sbin/agetty -o '-p -- \\u' --noissue --noclear --nohostname - $TERM
 Type=idle
-Restart=always
-RestartSec=0
+Restart=no
 UtmpIdentifier=%I
 StandardInput=tty
 StandardOutput=tty

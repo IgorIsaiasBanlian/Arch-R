@@ -1,5 +1,6 @@
 [Unit]
 Description=Timer to report anonymous ArchR install statistics
+ConditionPathExists=/storage/.cache/services/stats.enabled
 
 [Timer]
 OnBootSec=5min

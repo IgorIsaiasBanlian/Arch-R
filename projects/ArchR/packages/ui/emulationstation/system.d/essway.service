@@ -12,8 +12,10 @@ Environment=HOME=/storage
 EnvironmentFile=/etc/profile
 ExecStart=/usr/bin/start_es.sh
 WorkingDirectory=/storage
-Restart=always
-RestartSec=2
+Restart=on-failure
+RestartSec=5
+StartLimitIntervalSec=60
+StartLimitBurst=3
 
 [Install]
 WantedBy=archr.target
