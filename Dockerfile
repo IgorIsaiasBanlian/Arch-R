@@ -5,7 +5,7 @@ SHELL ["/usr/bin/bash", "-c"]
 # Update system and install base packages
 RUN pacman -Syu --noconfirm && \
     pacman -S --noconfirm --needed \
-    base-devel bc jdk-openjdk file gawk git go gperf \
+    base-devel bc jdk-openjdk file gawk gettext git go gperf \
     perl-json perl-xml-parser ncurses lzop make patchutils \
     python python-setuptools parted unzip wget curl \
     xorg-mkfontscale libxslt zip vim zstd rdfind automake \
