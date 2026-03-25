@@ -21,6 +21,12 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-alsaconf \
                            --disable-rst2man \
                            --disable-xmlto"
 
+pre_make_target() {
+  # Fix: po/Makefile references /config.status with wrong absolute path in cross-compile
+  # NLS is disabled anyway, so remove the po subdir from the build
+  sed -i 's/SUBDIRS = \(.*\) po\(.*\)/SUBDIRS = \1\2/' Makefile
+}
+
 post_makeinstall_target() {
   rm -rf ${INSTALL}/lib ${INSTALL}/var
   rm -rf ${INSTALL}/usr/share/alsa/speaker-test

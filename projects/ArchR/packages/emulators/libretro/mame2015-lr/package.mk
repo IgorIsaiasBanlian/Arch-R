@@ -31,6 +31,8 @@ pre_make_target() {
   export REALCC=${CC}
   export CC=${CXX}
   export LD=${CXX}
+  # Fix GCC 15 stricter template and implicit conversion checks
+  export CXXFLAGS="${CXXFLAGS} -fpermissive -Wno-template-body"
 }
 
 pre_configure_target() {
