@@ -119,7 +119,9 @@ packages/mediacenter/
 packages/linux-driver-addons/
 
 # Kodi addons (no MEDIACENTER in ArchR)
-packages/addons/
+# Kodi addons (no MEDIACENTER in ArchR) - keep addon-depends for shared libraries
+packages/addons/*
+!packages/addons/addon-depends/
 
 # Platform-specific bootloaders/tools (not RK3326)
 packages/tools/bcm2835-bootloader/
