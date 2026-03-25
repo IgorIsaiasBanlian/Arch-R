@@ -185,6 +185,12 @@ pre_configure_target() {
   export LDFLAGS="${LDFLAGS} -lresolv -fopenmp -Wl,-rpath,../src/.libs"
 }
 
+pre_make_target() {
+  # Fix: po/Makefile references /config.status with wrong absolute path in cross-compile
+  # NLS is disabled anyway, so remove po from the build
+  sed -i 's/SUBDIRS = \(.*\) po\(.*\)/SUBDIRS = \1\2/' Makefile
+}
+
 post_makeinstall_target() {
   rm -fr ${INSTALL}/usr/share/applications
   rm -fr ${INSTALL}/usr/share/icons
