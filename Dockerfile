@@ -19,7 +19,10 @@ RUN pacman -S --noconfirm --needed \
     perl-json perl-xml-parser ncurses lzop make patchutils \
     python python-setuptools parted unzip wget curl \
     xorg-mkfontscale libxslt zip vim zstd rdfind automake \
-    xmlstarlet rsync which sudo rpcsvc-proto perl-parse-yapp xorg-bdftopcf
+    xmlstarlet rsync which sudo rpcsvc-proto perl-parse-yapp xorg-bdftopcf \
+    dtc python-pip
+# Python fdt package for MIPI panel overlay generation
+RUN pip3 install --break-system-packages fdt
 
 # Note: GCC downgrade removed - build system compiles its own cross-toolchain (GCC 15.1).
 # Host GCC is only used for host tools. Fixes from projects/ArchR/packages/ handle

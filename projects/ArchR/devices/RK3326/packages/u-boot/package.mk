@@ -100,10 +100,23 @@ makeinstall_target() {
 
   find_dir_path config/stock && cp -av ${FOUND_PATH} "${INSTALL}/usr/share/bootloader/"
 
+  # Generate MIPI panel overlays if not already present
+  MIPI_GEN="${ROOT}/config/mipi-generator"
+  MIPI_OUT="${MIPI_GEN}/output"
+  if [ -x "${MIPI_GEN}/generator.sh" ] && [ ! -d "${MIPI_OUT}/original" ] || [ -z "$(ls -A "${MIPI_OUT}/original" 2>/dev/null)" ]; then
+    echo "Generating MIPI panel overlays..."
+    bash "${MIPI_GEN}/generator.sh" || echo "WARNING: Panel overlay generation failed (non-fatal)"
+  fi
+
   # Install per-SUBDEVICE panel overlays (original + clone)
   for sd in ${SUBDEVICES}; do
+    mkdir -p "${INSTALL}/usr/share/bootloader/overlays_${sd}"
+    # First try pre-generated from mipi-generator output
+    if [ -d "${MIPI_OUT}/${sd}" ]; then
+      cp -av "${MIPI_OUT}/${sd}/"*.dtbo "${INSTALL}/usr/share/bootloader/overlays_${sd}/" 2>/dev/null || true
+    fi
+    # Then overlay with any from config dir (manual overrides)
     if find_dir_path config/overlays_${sd}; then
-      mkdir -p "${INSTALL}/usr/share/bootloader/overlays_${sd}"
       cp -av ${FOUND_PATH}/*.dtbo "${INSTALL}/usr/share/bootloader/overlays_${sd}/" 2>/dev/null || true
     fi
   done
