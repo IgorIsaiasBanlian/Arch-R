@@ -14,7 +14,8 @@
 #   - output/panels/clone/     -> overlays for clone R36S image
 #==============================================================================
 
-set -e
+# Don't use set -e: individual panel failures should not abort the entire script
+set +e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
