@@ -13,10 +13,10 @@ ExecStartPre=/usr/bin/es_settings
 ExecStart=/usr/bin/emulationstation --log-path /var/log --no-splash
 KillMode=process
 TimeoutStopSec=3
-Restart=on-failure
-RestartSec=5
+Restart=always
+RestartSec=2
 StartLimitIntervalSec=60
-StartLimitBurst=3
+StartLimitBurst=5
 
 [Install]
 WantedBy=archr.target

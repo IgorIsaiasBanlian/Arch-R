@@ -31,7 +31,8 @@ PKG_CMAKE_OPTS_TARGET+=" -DARCHR=1 \
                          -DENABLE_PULSE=1 \
                          -DUSE_SYSTEM_PUGIXML=1 \
                          -DIntl_INCLUDE_DIR=${SYSROOT_PREFIX}/usr/include \
-                         -DIntl_IS_BUILT_IN=TRUE"
+                         -DIntl_IS_BUILT_IN=TRUE \
+                         -DCMAKE_CXX_FLAGS=-DHAVE_INTL"
 
 pre_configure_target() {
   for key in SCREENSCRAPER_DEV_LOGIN \
