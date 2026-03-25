@@ -204,9 +204,12 @@ post_makeinstall_target() {
   sed -e "s,^.*MaxFileSec=.*$,MaxFileSec=0,g" -i ${INSTALL}/etc/systemd/journald.conf
   sed -e "s,^.*MaxRetentionSec=.*$,MaxRetentionSec=0,g" -i ${INSTALL}/etc/systemd/journald.conf
   sed -e "s,^.*RuntimeMaxUse=.*$,RuntimeMaxUse=2M,g" -i ${INSTALL}/etc/systemd/journald.conf
+  sed -e "s,^.*Storage=.*$,Storage=volatile,g" -i ${INSTALL}/etc/systemd/journald.conf
+  sed -e "s,^.*RuntimeMaxUse=.*$,RuntimeMaxUse=16M,g" -i ${INSTALL}/etc/systemd/journald.conf
   sed -e "s,^.*RuntimeMaxFileSize=.*$,RuntimeMaxFileSize=128K,g" -i ${INSTALL}/etc/systemd/journald.conf
   sed -e "s,^.*SplitMode=.*$,SplitMode=none,g" -i ${INSTALL}/etc/systemd/journald.conf
   sed -e "s,^.*SystemMaxUse=.*$,SystemMaxUse=10M,g" -i ${INSTALL}/etc/systemd/journald.conf
+  sed -e "s,^.*RateLimitBurst=.*$,RateLimitBurst=1000,g" -i ${INSTALL}/etc/systemd/journald.conf
 
   # tune logind.conf
   if [ "${LOCAL_LOGIN}" = "yes" ]; then
