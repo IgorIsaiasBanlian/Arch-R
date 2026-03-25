@@ -9,21 +9,14 @@ PKG_ARCH="aarch64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://btrfs.readthedocs.io/"
 PKG_URL="https://github.com/kdave/btrfs-progs/archive/v${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain util-linux zlib systemd lzo"
-PKG_LONGDESC="Tools for the btrfs filesystem"
-PKG_TOOLCHAIN="configure"
+PKG_DEPENDS_TARGET=""
+PKG_LONGDESC="Tools for the btrfs filesystem (disabled - not needed for gaming handheld)"
+PKG_TOOLCHAIN="manual"
+PKG_SECTION="virtual"
 
-PKG_CONFIGURE_OPTS_TARGET="--disable-backtrace \
-                           --disable-convert \
-                           --disable-documentation \
-                           --disable-python \
-                           --disable-zstd"
-
-pre_configure_target() {
-  ./autogen.sh
-}
-
-makeinstall_target() {
-  mkdir -p ${INSTALL}/usr/sbin
-    cp -P ${PKG_BUILD}/{btrfs,btrfsck,btrfstune,fsck.btrfs,mkfs.btrfs} ${INSTALL}/usr/sbin
-}
+# btrfs-progs needs git submodules (libbtrfsutil) not available in GitHub archive tarballs.
+# Not essential for R36S gaming handheld - rootfs is ext4, not btrfs.
+unpack() { true; }
+configure_target() { true; }
+make_target() { true; }
+makeinstall_target() { true; }
