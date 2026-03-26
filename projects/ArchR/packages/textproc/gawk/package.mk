@@ -14,6 +14,11 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-nls \
                            --without-readline \
                            --without-mpfr"
 
+post_makeinstall_target() {
+  # Remove gawk profile.d scripts (csh syntax causes errors in sh/bash login shells)
+  rm -rf ${INSTALL}/etc/profile.d/gawk.*
+}
+
 post_install() {
   # Create awk -> gawk symlink
   ln -sf gawk ${INSTALL}/usr/bin/awk

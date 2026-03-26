@@ -1,15 +1,25 @@
 #!/bin/bash
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2024 JELOS (https://github.com/JustEnoughLinuxOS)
+# Copyright (C) 2026 ArchR (https://github.com/archr-linux/Arch-R)
 
-# Set turbomode state
+# RK3326 (PX30) Cortex-A35 supports up to 1512MHz (Rockchip reference)
+# Default scaling_max is 1416MHz, boost unlocks 1512MHz
+
+BOOST_FILE="/sys/devices/system/cpu/cpufreq/boost"
+POLICY="/sys/devices/system/cpu/cpufreq/policy0"
+FREQ_1416=1416000
+FREQ_1512=1512000
+
 case $1 in
   disable)
-    echo "0" > /sys/devices/system/cpu/cpufreq/boost
+    echo "0" > "${BOOST_FILE}" 2>/dev/null
+    echo "${FREQ_1416}" > "${POLICY}/scaling_max_freq" 2>/dev/null
     set_setting enable.turbo-mode 0
   ;;
   enable)
-    echo "1" > /sys/devices/system/cpu/cpufreq/boost
+    echo "1" > "${BOOST_FILE}" 2>/dev/null
+    echo "${FREQ_1512}" > "${POLICY}/scaling_max_freq" 2>/dev/null
     set_setting enable.turbo-mode 1
   ;;
 esac

@@ -10,9 +10,10 @@ index 9137dd76e72c..882b91d8468d 100644
  		i2c0 = &i2c0;
  		i2c1 = &i2c1;
  		i2c2 = &i2c2;
-@@ -113,32 +114,22 @@ cpu0_opp_table: opp-table-0 {
+@@ -113,32 +114,28 @@ cpu0_opp_table: opp-table-0 {
  		compatible = "operating-points-v2";
  		opp-shared;
++		rockchip,avs = <1>;
  
 -		opp-600000000 {
 -			opp-hz = /bits/ 64 <600000000>;
@@ -42,6 +43,11 @@ index 9137dd76e72c..882b91d8468d 100644
  		};
 +		opp-1416000000 {
 +			opp-hz = /bits/ 64 <1416000000>;
++			opp-microvolt = <1350000 1350000 1350000>;
++			clock-latency-ns = <40000>;
++		};
++		opp-1512000000 {
++			opp-hz = /bits/ 64 <1512000000>;
 +			opp-microvolt = <1350000 1350000 1350000>;
 +			clock-latency-ns = <40000>;
 +			turbo-mode;
@@ -82,7 +88,7 @@ index 9137dd76e72c..882b91d8468d 100644
  	pmugrf: syscon@ff010000 {
  		compatible = "rockchip,px30-pmugrf", "syscon", "simple-mfd";
  		reg = <0x0 0xff010000 0x0 0x1000>;
-@@ -1065,21 +1082,9 @@ nfc: nand-controller@ff3b0000 {
+@@ -1065,21 +1082,13 @@ nfc: nand-controller@ff3b0000 {
  	gpu_opp_table: opp-table-1 {
  		compatible = "operating-points-v2";
  
@@ -104,6 +110,10 @@ index 9137dd76e72c..882b91d8468d 100644
 +		opp-560000000 {
 +			opp-hz = /bits/ 64 <560000000>;
 +			opp-microvolt = <1150000>;
++		};
++		opp-600000000 {
++			opp-hz = /bits/ 64 <600000000>;
++			opp-microvolt = <1175000>;
  		};
  	};
  
