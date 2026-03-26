@@ -175,6 +175,41 @@ for key in "${CLONE_ORDER[@]}"; do
 done
 
 #------------------------------------------------------------------------------
+# Soysauce R36S panels (pre-compiled DTBs from Y3506 variants)
+#------------------------------------------------------------------------------
+SOYSAUCE_DIR="${ROOT_DIR}/config/archr-dts/R36S-soysauce"
+OUTPUT_SOYSAUCE="${MIPI_OUT:-${ROOT_DIR}/config/mipi-generator/output}/soysauce"
+mkdir -p "$OUTPUT_SOYSAUCE"
+
+if [ -d "$SOYSAUCE_DIR" ]; then
+    log ""
+    log "=== Soysauce R36S Panel Overlays ==="
+    log "Source: $SOYSAUCE_DIR"
+    log "Output: $OUTPUT_SOYSAUCE"
+    log ""
+
+    declare -A SOYSAUCE_PANELS=(
+        [soysauce_v03_1104]="Y3506_V03_20241104/rk3326-r36s-linux.dtb"
+        [soysauce_v03_1210]="Y3506_v03_20241210/rk3326-r36s-linux.dtb"
+        [soysauce_v03_0317]="Y3506_V03_20250317/rk3326-r36s-linux.dtb"
+        [soysauce_v04_253x]="Y3506_V04_20250529 253x Panel 6/rk3326-r36s-linux.dtb"
+        [soysauce_v04_2548]="Y3506_V04_20250529 2548/rk3326-r36s-linux.dtb"
+        [soysauce_v05_2551]="Y3506_V05_20251215 2551/rk3326-r36s-linux.dtb"
+        [soysauce_v05_2601]="Y3506_V05_20251215 2601/rk3326-r36s-linux.dtb"
+    )
+
+    SOYSAUCE_ORDER=(soysauce_v03_1104 soysauce_v03_1210 soysauce_v03_0317
+                    soysauce_v04_253x soysauce_v04_2548
+                    soysauce_v05_2551 soysauce_v05_2601)
+
+    for key in "${SOYSAUCE_ORDER[@]}"; do
+        dtb="${SOYSAUCE_PANELS[$key]}"
+        log "Soysauce ${key}: ${dtb}"
+        generate_from_dtb "$SOYSAUCE_DIR/$dtb" "$OUTPUT_SOYSAUCE/${key}.dtbo" "" "$key"
+    done
+fi
+
+#------------------------------------------------------------------------------
 # Summary
 #------------------------------------------------------------------------------
 log ""

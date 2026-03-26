@@ -120,6 +120,12 @@ makeinstall_target() {
       cp -av ${FOUND_PATH}/*.dtbo "${INSTALL}/usr/share/bootloader/overlays_${sd}/" 2>/dev/null || true
     fi
   done
+  # Install soysauce panel overlays (included in original image)
+  if [ -d "${MIPI_OUT}/soysauce" ]; then
+    mkdir -p "${INSTALL}/usr/share/bootloader/overlays_soysauce"
+    cp -av "${MIPI_OUT}/soysauce/"*.dtbo "${INSTALL}/usr/share/bootloader/overlays_soysauce/" 2>/dev/null || true
+  fi
+
   # Also install generic overlays dir (README, fallback)
   find_dir_path config/overlays && cp -av ${FOUND_PATH} "${INSTALL}/usr/share/bootloader/"
 }

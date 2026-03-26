@@ -11,6 +11,7 @@
       <file>rk3326-gameforce-chi</file>
       <file>rk3326-magicx-xu10</file>
       <file>rk3326-powkiddy-rgb10</file>
+      <file>rk3326-gameconsole-soysauce</file>
     </original>
     <clone mkimage_options="dtb,bootscr,extlinux,uboot" fdt_type="fdtdir" fdt="/dtbs/">
       <file>rk3326-gameconsole-eeclone</file>
