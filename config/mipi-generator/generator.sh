@@ -189,18 +189,18 @@ if [ -d "$SOYSAUCE_DIR" ]; then
     log ""
 
     declare -A SOYSAUCE_PANELS=(
-        [soysauce_v03_1104]="Y3506_V03_20241104/rk3326-r36s-linux.dtb"
-        [soysauce_v03_1210]="Y3506_v03_20241210/rk3326-r36s-linux.dtb"
-        [soysauce_v03_0317]="Y3506_V03_20250317/rk3326-r36s-linux.dtb"
-        [soysauce_v04_253x]="Y3506_V04_20250529 253x Panel 6/rk3326-r36s-linux.dtb"
-        [soysauce_v04_2548]="Y3506_V04_20250529 2548/rk3326-r36s-linux.dtb"
-        [soysauce_v05_2551]="Y3506_V05_20251215 2551/rk3326-r36s-linux.dtb"
-        [soysauce_v05_2601]="Y3506_V05_20251215 2601/rk3326-r36s-linux.dtb"
+        [ss_v03_20241104]="Y3506_V03_20241104/rk3326-r36s-linux.dtb"
+        [ss_v03_20241210]="Y3506_v03_20241210/rk3326-r36s-linux.dtb"
+        [ss_v03_20250317]="Y3506_V03_20250317/rk3326-r36s-linux.dtb"
+        [ss_v04_20250529_253x]="Y3506_V04_20250529 253x Panel 6/rk3326-r36s-linux.dtb"
+        [ss_v04_20250529_2548]="Y3506_V04_20250529 2548/rk3326-r36s-linux.dtb"
+        [ss_v05_20251215_2551]="Y3506_V05_20251215 2551/rk3326-r36s-linux.dtb"
+        [ss_v05_20251215_2601]="Y3506_V05_20251215 2601/rk3326-r36s-linux.dtb"
     )
 
-    SOYSAUCE_ORDER=(soysauce_v03_1104 soysauce_v03_1210 soysauce_v03_0317
-                    soysauce_v04_253x soysauce_v04_2548
-                    soysauce_v05_2551 soysauce_v05_2601)
+    SOYSAUCE_ORDER=(ss_v03_20241104 ss_v03_20241210 ss_v03_20250317
+                    ss_v04_20250529_253x ss_v04_20250529_2548
+                    ss_v05_20251215_2551 ss_v05_20251215_2601)
 
     for key in "${SOYSAUCE_ORDER[@]}"; do
         dtb="${SOYSAUCE_PANELS[$key]}"

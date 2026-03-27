@@ -100,10 +100,10 @@ makeinstall_target() {
 
   find_dir_path config/stock && cp -av ${FOUND_PATH} "${INSTALL}/usr/share/bootloader/"
 
-  # Generate MIPI panel overlays if not already present
+  # Generate MIPI panel overlays
   MIPI_GEN="${ROOT}/config/mipi-generator"
   MIPI_OUT="${MIPI_GEN}/output"
-  if [ -x "${MIPI_GEN}/generator.sh" ] && [ ! -d "${MIPI_OUT}/original" ] || [ -z "$(ls -A "${MIPI_OUT}/original" 2>/dev/null)" ]; then
+  if [ -x "${MIPI_GEN}/generator.sh" ]; then
     echo "Generating MIPI panel overlays..."
     bash "${MIPI_GEN}/generator.sh" || echo "WARNING: Panel overlay generation failed (non-fatal)"
   fi
