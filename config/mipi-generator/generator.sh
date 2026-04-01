@@ -8,6 +8,8 @@
 # Sources:
 #   - R36S originals: DTS in config/archr-dts/R36S-DTB/DTS/
 #   - R36S clones: DTBs in config/archr-dts/R36S-Clones-DTB/
+#   - EE clone plugin overlays: hand-written overlay DTS in
+#     config/archr-dts/R36S-clone-plugin-overlays/ (compiled with dtc -@ only)
 #
 # Output:
 #   - output/panels/original/  -> overlays for original R36S image
@@ -106,6 +108,31 @@ generate_from_dtb() {
 }
 
 #------------------------------------------------------------------------------
+# Helper: compile overlay plugin DTS with dtc -@ (no archr-dtbo.py)
+#------------------------------------------------------------------------------
+generate_from_plugin_dts() {
+    local dts_file="$1"
+    local out_file="$2"
+    local label="$3"
+
+    if [ ! -f "$dts_file" ]; then
+        warn "  Plugin DTS not found: $dts_file"
+        FAILED=$((FAILED + 1))
+        return 1
+    fi
+
+    if dtc -I dts -O dtb -@ "$dts_file" -o "$out_file" 2>/dev/null; then
+        local sz=$(stat -c%s "$out_file")
+        log "  OK: $(basename "$out_file") (${sz} bytes) [$label]"
+        GENERATED=$((GENERATED + 1))
+    else
+        warn "  dtc failed plugin overlay: $(basename "$dts_file")"
+        FAILED=$((FAILED + 1))
+        return 1
+    fi
+}
+
+#------------------------------------------------------------------------------
 # Original R36S panels (DTS files)
 #------------------------------------------------------------------------------
 log "=== Original R36S Panel Overlays ==="
@@ -172,6 +199,28 @@ for key in "${CLONE_ORDER[@]}"; do
     dtb="${CLONE_PANELS[$key]}"
     log "Clone ${key}: ${dtb}"
     generate_from_dtb "$CLONES_DIR/$dtb" "$OUTPUT_CLONE/${key}.dtbo" "" "$key"
+done
+
+#------------------------------------------------------------------------------
+# Clone R36S — hand-written plugin overlays (dts → dtbo via dtc -@)
+#------------------------------------------------------------------------------
+PLUGIN_CLONE_DTS_DIR="${ROOT_DIR}/config/archr-dts/R36S-clone-plugin-overlays"
+log ""
+log "=== Clone EE plugin overlays (dtc -@) ==="
+log "Source: $PLUGIN_CLONE_DTS_DIR"
+log "Output: $OUTPUT_CLONE"
+log ""
+
+declare -A PLUGIN_CLONE_DTS=(
+    [clone_panel_11]="eeclone-mipi-panel-640x480.dts"
+)
+
+PLUGIN_CLONE_ORDER=(clone_panel_11)
+
+for key in "${PLUGIN_CLONE_ORDER[@]}"; do
+    dts="${PLUGIN_CLONE_DTS[$key]}"
+    log "Plugin clone ${key}: ${dts}"
+    generate_from_plugin_dts "$PLUGIN_CLONE_DTS_DIR/$dts" "$OUTPUT_CLONE/${key}.dtbo" "$key"
 done
 
 #------------------------------------------------------------------------------
