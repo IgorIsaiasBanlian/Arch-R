@@ -1,57 +1,23 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: Chris Morgan <macromorgan@hotmail.com>
-Date: Thu, 26 Sep 2024 09:43:45 -0500
-Subject: [PATCH] power: supply: rk817: fix battery calibration and suspend
-
-Backport of two upstream patches from kernel 6.13:
-  - bded860c3110 ("power: supply: rk817: stop updating info in suspend")
-  - 1e5335d00707 ("power: supply: rk817: Update battery capacity calibration")
-
-The battery monitoring thread reads incorrect voltage values during
-suspend, causing the calibration function to erroneously recalibrate
-the full charge capacity or set SOC to 0. This results in the battery
-percentage rapidly dropping to 0% even when the battery is still
-charged.
-
-Fix 1: Cancel the monitoring thread during suspend so stale readings
-are not collected while the system sleeps.
-
-Fix 2: Add voltage sanity checks (2.7V-4.45V) to the calibration
-function, guard against no-battery-present, remove the problematic
-automatic FCC recalibration on empty battery, and make CHARGE_FULL
-writable from userspace for degraded battery support.
-
-Signed-off-by: Chris Morgan <macromorgan@hotmail.com>
----
- drivers/power/supply/rk817_charger.c | 112 ++++++++++++++++++---------
- 1 file changed, 74 insertions(+), 38 deletions(-)
-
-diff --git a/drivers/power/supply/rk817_charger.c b/drivers/power/supply/rk817_charger.c
---- a/drivers/power/supply/rk817_charger.c
-+++ b/drivers/power/supply/rk817_charger.c
-@@ -240,9 +240,32 @@ static int rk817_record_battery_nvram_values(struct rk817_charger *charger)
+--- a/drivers/power/supply/rk817_charger.c	2026-04-02 16:24:36.709878954 -0300
++++ b/drivers/power/supply/rk817_charger.c	2026-04-02 16:24:36.710727282 -0300
+@@ -240,9 +240,27 @@
  static int rk817_bat_calib_cap(struct rk817_charger *charger)
  {
  	struct rk808 *rk808 = charger->rk808;
 -	int tmp, charge_now, charge_now_adc, volt_avg;
 +	int charge_now, charge_now_adc;
  	u8 bulk_reg[4];
-
+ 
 +	/* Don't do anything if there's no battery. */
 +	if (!charger->battery_present)
 +		return 0;
 +
 +	/*
 +	 * When resuming from suspend, sometimes the voltage value would be
-+	 * incorrect. BSP would simply wait two seconds and try reading the
-+	 * values again. Do not do any sort of calibration activity when the
-+	 * reported value is incorrect. The next scheduled update of battery
-+	 * values should then return valid data and the driver can continue.
-+	 * Use 2.7v as the sanity value because per the datasheet the PMIC
-+	 * can in no way support a battery voltage lower than this. BSP only
-+	 * checked for values too low, but adding a check for values
-+	 * too high just in case; the PMIC can in no way support
-+	 * voltages above 4.45v.
++	 * incorrect. Do not do any sort of calibration activity when the
++	 * reported value is incorrect. Use 2.7v as the sanity value because
++	 * per the datasheet the PMIC can in no way support a battery voltage
++	 * lower than this, and 4.45v as the upper bound.
 +	 */
 +	if ((charger->volt_avg_uv < 2700000) || (charger->volt_avg_uv > 4450000)) {
 +		dev_dbg(charger->dev,
@@ -61,12 +27,12 @@ diff --git a/drivers/power/supply/rk817_charger.c b/drivers/power/supply/rk817_c
 +	}
 +
  	/* Calibrate the soc and fcc on a fully charged battery */
-
+ 
  	if (charger->charge_status == CHARGE_FINISH && (!charger->soc_cal)) {
-@@ -304,51 +327,6 @@ static int rk817_bat_calib_cap(struct rk817_charger *charger)
+@@ -304,51 +322,6 @@
  		}
  	}
-
+ 
 -	/*
 -	 * Calibrate the fully charged capacity when we previously had a full
 -	 * battery (soc_cal = 1) and are now empty (at or below minimum design
@@ -113,12 +79,12 @@ diff --git a/drivers/power/supply/rk817_charger.c b/drivers/power/supply/rk817_c
 -		}
 -
  	rk817_record_battery_nvram_values(charger);
-
+ 
  	return 0;
-@@ -648,6 +626,24 @@ static irqreturn_t rk817_plug_out_isr(int irq, void *cg)
+@@ -648,6 +621,24 @@
  	return IRQ_HANDLED;
  }
-
+ 
 +static int rk817_bat_set_prop(struct power_supply *ps,
 +			      enum power_supply_property prop,
 +			      const union power_supply_propval *val)
@@ -140,10 +106,10 @@ diff --git a/drivers/power/supply/rk817_charger.c b/drivers/power/supply/rk817_c
  static enum power_supply_property rk817_bat_props[] = {
  	POWER_SUPPLY_PROP_PRESENT,
  	POWER_SUPPLY_PROP_STATUS,
-@@ -673,12 +669,25 @@ static enum power_supply_property rk817_chg_props[] = {
+@@ -673,12 +664,25 @@
  	POWER_SUPPLY_PROP_VOLTAGE_AVG,
  };
-
+ 
 +static int rk817_bat_prop_writeable(struct power_supply *psy,
 +				    enum power_supply_property psp)
 +{
@@ -156,7 +122,8 @@ diff --git a/drivers/power/supply/rk817_charger.c b/drivers/power/supply/rk817_c
 +}
 +
  static const struct power_supply_desc rk817_bat_desc = {
- 	.name = "battery",
+-	.name = "rk817-battery",
++	.name = "battery",
  	.type = POWER_SUPPLY_TYPE_BATTERY,
  	.properties = rk817_bat_props,
 +	.property_is_writeable	= rk817_bat_prop_writeable,
@@ -164,12 +131,12 @@ diff --git a/drivers/power/supply/rk817_charger.c b/drivers/power/supply/rk817_c
  	.get_property = rk817_bat_get_prop,
 +	.set_property = rk817_bat_set_prop,
  };
-
+ 
  static const struct power_supply_desc rk817_chg_desc = {
-@@ -1202,6 +1211,15 @@ static int rk817_charger_probe(struct platform_device *pdev)
+@@ -1202,6 +1206,15 @@
  	return 0;
  }
-
+ 
 +static int __maybe_unused rk817_suspend(struct device *dev)
 +{
 +	struct rk817_charger *charger = dev_get_drvdata(dev);
@@ -181,13 +148,13 @@ diff --git a/drivers/power/supply/rk817_charger.c b/drivers/power/supply/rk817_c
 +
  static int __maybe_unused rk817_resume(struct device *dev)
  {
-
-@@ -1213,7 +1231,7 @@ static int __maybe_unused rk817_resume(struct device *dev)
+ 
+@@ -1213,7 +1226,7 @@
  	return 0;
  }
-
+ 
 -static SIMPLE_DEV_PM_OPS(rk817_charger_pm, NULL, rk817_resume);
 +static SIMPLE_DEV_PM_OPS(rk817_charger_pm, rk817_suspend, rk817_resume);
-
+ 
  static struct platform_driver rk817_charger_driver = {
  	.probe    = rk817_charger_probe,

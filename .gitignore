@@ -36,6 +36,8 @@ mkpkg-temp
 .DS_Store
 .directory
 Thumbs.db
+*.log
+*.pdf
 
 # temp scripts (debug/install helpers)
 fix-debug.sh
