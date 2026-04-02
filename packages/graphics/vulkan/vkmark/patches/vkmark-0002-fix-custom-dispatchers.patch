@@ -17,7 +17,7 @@ index a36b299..8470951 100644
  
  }
  
-+#if VK_HEADER_VERSION >= 333
++#if VK_HEADER_VERSION >= 333 && VK_HEADER_VERSION <= 337
 +namespace vk::detail {
 +
 +template <>
@@ -54,7 +54,7 @@ index 4bf7838..1bc0458 100644
  
 +}
 +
-+#if VK_HEADER_VERSION >= 333
++#if VK_HEADER_VERSION >= 333 && VK_HEADER_VERSION <= 337
 +namespace vk::detail {
 +
 +template <>

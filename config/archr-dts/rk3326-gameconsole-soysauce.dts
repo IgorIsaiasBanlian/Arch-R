@@ -42,7 +42,7 @@
 	};
 
 	joypad: odroidgo3-joypad {
-		compatible = "odroidgo3-joypad";
+		compatible = "archr-joypad", "odroidgo3-joypad";
 		pwms = <&pwm0 0 200000000 0>;
 		pwm-names = "enable";
 		rumble-boost-weak = <0x0000>;
@@ -176,11 +176,16 @@
 	};
 };
 
-/* Soysauce panel: different reset GPIO + additional enable GPIO */
+/* Soysauce panel: same reset GPIO as base (GPIO3_PC0), add enable GPIO */
 &internal_display {
 	compatible = "archr,generic-dsi", "rocknix,generic-dsi";
-	reset-gpios = <&gpio3 RK_PB0 GPIO_ACTIVE_LOW>;
 	enable-gpios = <&gpio1 RK_PC2 GPIO_ACTIVE_HIGH>;
+};
+
+/* Soysauce uses GPIO3_PB6 for BTN-A, not sdio card detect */
+&sdio {
+	/delete-property/ cd-gpios;
+	non-removable;
 };
 
 &rk817_codec {
@@ -215,9 +220,6 @@
 	};
 
 	panel {
-		panel_reset: panel-reset {
-			rockchip,pins = <3 RK_PB0 RK_FUNC_GPIO &pcfg_pull_none>;
-		};
 		panel_enable: panel-enable {
 			rockchip,pins = <1 RK_PC2 RK_FUNC_GPIO &pcfg_pull_none>;
 		};

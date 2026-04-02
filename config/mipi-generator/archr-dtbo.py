@@ -281,7 +281,7 @@ def add_gpio_vol_keys(dt, overlay, gpio_keys_ovl):
 
 def switch_joypad_to_mymini(overlay, jp_ovl):
     # My mini has separate ADC channels for axis, so we need another driver
-    jp_ovl.set_property('compatible', "rocknix-joypad")
+    jp_ovl.set_property('compatible', "archr-joypad")
     jp_ovl.set_property('io-channel-names', ["key-RY", "key-RX", "key-LY", "key-LX"])
     jp_ovl.set_property('io-channels', [0xffffffff, 3, 0xffffffff, 3, 0xffffffff, 2, 0xffffffff, 1])
     add_fixup(overlay, 'saradc', jp_ovl.path+'/__overlay__:io-channels:0')
