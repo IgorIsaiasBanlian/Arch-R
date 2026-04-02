@@ -8,7 +8,7 @@ PKG_SHA256="93e583f243454e6e9e4588ca2c2662206ad961659863277afcdb96801647d640"
 PKG_LICENSE="OSS"
 PKG_SITE="https://www.python.org/"
 PKG_URL="https://www.python.org/ftp/python/${PKG_VERSION}/${PKG_NAME::-1}-${PKG_VERSION}.tar.xz"
-PKG_DEPENDS_HOST="zlib:host bzip2:host libffi:host util-linux:host autoconf-archive:host openssl:host"
+PKG_DEPENDS_HOST="zlib:host bzip2:host xz:host libffi:host util-linux:host autoconf-archive:host openssl:host"
 PKG_DEPENDS_TARGET="autotools:host gcc:host Python3:host sqlite expat zlib bzip2 xz openssl libffi readline ncurses util-linux"
 PKG_LONGDESC="Python3 is an interpreted object-oriented programming language."
 PKG_BUILD_FLAGS="-cfg-libs -cfg-libs:host"
@@ -27,7 +27,6 @@ PKG_CONFIGURE_OPTS_HOST="ac_cv_prog_HAS_HG=/bin/false
                          py_cv_module__codecs_kr=n/a
                          py_cv_module__codecs_tw=n/a
                          py_cv_module__decimal=n/a
-                         py_cv_module__lzma=n/a
                          py_cv_module_nis=n/a
                          py_cv_module_ossaudiodev=n/a
                          py_cv_module__dbm=n/a

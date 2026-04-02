@@ -12,7 +12,7 @@ PKG_DEPENDS_TARGET="toolchain squashfs-tools:host dosfstools:host fakeroot:host 
                     mtools:host populatefs:host libc gcc linux linux-drivers linux-firmware \
                     ${BOOTLOADER} busybox umtprd util-linux usb-modeswitch poppler jq socat \
                     p7zip file initramfs grep util-linux btrfs-progs zstd lz4 empty lzo libzip \
-                    bash coreutils sed gawk findutils diffutils \
+                    bash coreutils sed gawk findutils diffutils dos2unix xdelta3 \
                     system-utils autostart quirks powerstate gnupg \
                     gzip six xmlstarlet pyudev dialog network mako-osd archr \
                     pacman"

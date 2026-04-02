@@ -80,9 +80,14 @@ case "${QUIRK_DEVICE}" in
     LOWRES="N"
     ANALOG_STICKS="0"
   ;;
+  "Game Console R36S"*|"R36S Clone")
+    param_device="oga"
+    LOWRES="Y"
+    ANALOG_STICKS="2"
+  ;;
   *)
-    param_device="rg552"
-    LOWRES="N"
+    param_device="oga"
+    LOWRES="Y"
     ANALOG_STICKS="2"
   ;;
 esac

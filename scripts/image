@@ -162,6 +162,9 @@ echo "${TARGET_VERSION}" >${INSTALL}/etc/release
 
 # Create /etc/os-release
 cat <<EOF >${INSTALL}/etc/os-release
+NAME="${DISTRONAME}"
+ID="${OSNAME}"
+VERSION_ID="${OS_VERSION}"
 OS_NAME="${DISTRONAME}"
 OS_VERSION="${OS_VERSION}"
 OS_BUILD="${OS_BUILD}"
