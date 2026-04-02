@@ -41,6 +41,17 @@
 		};
 	};
 
+	/* Volume buttons: GPIO3_PC6/PC5 on soysauce (base has GPIO2_PA0/PA1) */
+	gpio-keys-vol {
+		button-vol-down {
+			gpios = <&gpio3 RK_PC5 GPIO_ACTIVE_LOW>;
+		};
+
+		button-volume-up {
+			gpios = <&gpio3 RK_PC6 GPIO_ACTIVE_LOW>;
+		};
+	};
+
 	joypad: odroidgo3-joypad {
 		compatible = "archr-joypad", "odroidgo3-joypad";
 		pwms = <&pwm0 0 200000000 0>;
@@ -194,6 +205,11 @@
 
 &pinctrl {
 	btns {
+		btn_pins_vol: btn-pins-vol {
+			rockchip,pins = <3 RK_PC5 RK_FUNC_GPIO &pcfg_pull_up>,
+					<3 RK_PC6 RK_FUNC_GPIO &pcfg_pull_up>;
+		};
+
 		btn_pins: btn-pins {
 			rockchip,pins =
 				<3 RK_PA0 RK_FUNC_GPIO &pcfg_pull_up>,
