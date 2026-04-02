@@ -143,6 +143,10 @@ fi
   echo "VSYNC set to: ${VSYNC}"
   echo "Launching /usr/bin/flycast ${1}"
 
+# Panfrost optimization for Mali-G31
+export PAN_MESA_DEBUG=forcepack
+export MESA_NO_ERROR=1
+
 #Run flycast emulator
 $GPTOKEYB "flycast" -c "${CONF_DIR}/flycast.gptk" &
 ${EMUPERF} /usr/bin/flycast "${1}"

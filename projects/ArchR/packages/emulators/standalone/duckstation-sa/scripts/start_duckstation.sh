@@ -125,5 +125,9 @@ fi
 sed -i '/\[Cheevos\]/,/^\s*$/s/Enabled =.*/Enabled = false/' ${CONF_FILE}
 
 
+# Panfrost optimization for Mali-G31
+export PAN_MESA_DEBUG=forcepack
+export MESA_NO_ERROR=1
+
 #Run Duckstation
 ${EMUPERF} duckstation-sa -fullscreen -bigpicture -nogui -- "${1}" > /dev/null 2>&1

@@ -1,0 +1,10 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2024-present ArchR (https://github.com/archr-linux/Arch-R)
+
+# Panfrost optimization for Mali-G31 (Bifrost)
+# forcepack: reduces draw call overhead by packing vertex attributes
+export PAN_MESA_DEBUG=forcepack
+
+# Skip GL error checking for better performance in emulators
+export MESA_NO_ERROR=1

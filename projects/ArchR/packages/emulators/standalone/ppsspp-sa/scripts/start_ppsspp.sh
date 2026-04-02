@@ -117,4 +117,8 @@ ARG=${1//[\\]/}
   echo "VSYNC set to: ${VSYNC}"
   echo "Launching /usr/bin/ppsspp ${ARG}"
 
+# Panfrost optimization: forcepack reduces draw call overhead on Mali-G31
+export PAN_MESA_DEBUG=forcepack
+export MESA_NO_ERROR=1
+
 ${EMUPERF} ppsspp --pause-menu-exit "${ARG}"
