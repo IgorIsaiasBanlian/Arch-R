@@ -15,5 +15,5 @@ PKG_CONFIGURE_OPTS_TARGET="--with-liblzma"
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin
-  cp -a ${PKG_BUILD}/xdelta3 ${INSTALL}/usr/bin/
+  cp -a xdelta3 ${INSTALL}/usr/bin/
 }
