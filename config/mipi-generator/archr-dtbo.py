@@ -337,9 +337,6 @@ def make_dtbo(dtb_data, args):
 
     compat = dt.get_node('/').get_property('compatible').data[0]
     args['logger'].info(f"compatible {compat}")
-    if 'odroidgo3' in compat:
-        # quick return for well supported R36s
-        return overlay.to_dtb()
 
     # copy reset config
     pins_path = panel_ovl.path+'/__overlay__/pinctrl/gpio-lcd/lcd-rst'
