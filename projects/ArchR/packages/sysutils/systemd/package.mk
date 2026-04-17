@@ -197,7 +197,8 @@ post_makeinstall_target() {
   safe_remove ${INSTALL}/usr/lib/systemd/system/systemd-time-wait-sync.service
   safe_remove ${INSTALL}/usr/lib/systemd/systemd-time-wait-sync
 
-  # tune journald.conf
+  # tune journald.conf - volatile storage (RAM only, no SD writes)
+  sed -e "s,^.*Storage=.*$,Storage=volatile,g" -i ${INSTALL}/etc/systemd/journald.conf
   sed -e "s,^.*Compress=.*$,Compress=no,g" -i ${INSTALL}/etc/systemd/journald.conf
   sed -e "s,^.*MaxFileSec=.*$,MaxFileSec=0,g" -i ${INSTALL}/etc/systemd/journald.conf
   sed -e "s,^.*MaxRetentionSec=.*$,MaxRetentionSec=0,g" -i ${INSTALL}/etc/systemd/journald.conf
