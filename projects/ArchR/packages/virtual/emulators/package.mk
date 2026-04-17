@@ -362,6 +362,10 @@ makeinstall_target() {
   add_emu_core ios touchhle touchhle-sa true
   add_es_system ios
 
+  ### Elektronika BK
+  add_emu_core bk retroarch bk true
+  add_es_system bk
+
   ### Nintendo Famicom
   add_emu_core famicom retroarch nestopia true
   add_emu_core famicom retroarch fceumm false
