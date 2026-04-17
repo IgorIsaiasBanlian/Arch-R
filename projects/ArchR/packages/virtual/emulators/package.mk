@@ -38,8 +38,8 @@ case "${DEVICE}" in
   RK3326)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 desmume-lr gpsp-lr pcsx_rearmed-lr"
     PKG_DEPENDS_TARGET+=" common-shaders glsl-shaders"
-    PKG_EMUS+=" box64 drastic-sa mednafen portmaster scummvmsa yabasanshiro-sa duckstation-sa"
-    LIBRETRO_CORES+=" flycast2021-lr geolith-lr uae4arm"
+    PKG_EMUS+=" box64 drastic-sa mednafen melonds-sa portmaster scummvmsa yabasanshiro-sa duckstation-sa"
+    LIBRETRO_CORES+=" flycast2021-lr geolith-lr uae4arm dolphin-lr"
     PKG_RETROARCH+=" retropie-shaders"
     ;;
   RK3399)
@@ -151,11 +151,7 @@ makeinstall_target() {
 
   ### Nintendo 3DS
   case ${DEVICE} in
-    SDM845|SM8250|SM8550|SM8650|S922X)
-      add_emu_core 3ds azahar azahar-sa true
-      add_es_system 3ds
-      ;;
-    RK3588)
+    SDM845|SM8250|SM8550|SM8650|S922X|RK3588)
       add_emu_core 3ds azahar azahar-sa true
       add_es_system 3ds
       ;;
@@ -580,14 +576,16 @@ makeinstall_target() {
       add_emu_core gamecube dolphin dolphin-sa-gc false
       add_emu_core gamecube retroarch dolphin false
       install_script "Start Dolphin.sh"
-      add_es_system gamecube
       ;;
     RK3566|RK3588|S922X)
       add_emu_core gamecube dolphin dolphin-sa-gc true
       add_emu_core gamecube retroarch dolphin false
-      add_es_system gamecube
+      ;;
+    *)
+      add_emu_core gamecube retroarch dolphin true
       ;;
   esac
+  add_es_system gamecube
 
   ### Nintendo Triforce
   case ${DEVICE} in
@@ -607,18 +605,20 @@ makeinstall_target() {
       add_emu_core wiiware dolphin dolphin-sa-wii false
       add_emu_core wii retroarch dolphin false
       add_emu_core wiiware retroarch dolphin false
-      add_es_system wii
-      add_es_system wiiware
       ;;
     RK3566|RK3588|S922X)
       add_emu_core wii dolphin dolphin-sa-wii true
       add_emu_core wiiware dolphin dolphin-sa-wii true
       add_emu_core wii retroarch dolphin false
       add_emu_core wiiware retroarch dolphin false
-      add_es_system wii
-      add_es_system wiiware
+      ;;
+    *)
+      add_emu_core wii retroarch dolphin true
+      add_emu_core wiiware retroarch dolphin true
       ;;
   esac
+  add_es_system wii
+  add_es_system wiiware
 
   ### Nintendo Wii U
   case ${DEVICE} in
@@ -818,10 +818,12 @@ makeinstall_target() {
   case ${DEVICE} in
     H700|RK3326)
       add_emu_core nds drastic drastic-sa true
+      add_emu_core nds melonds melonds-sa false
       add_emu_core nds retroarch melonds false
       add_emu_core nds retroarch melondsds false
       add_emu_core nds retroarch desmume false
       add_emu_core nds retroarch skyemu false
+      install_script "Start MelonDS.sh"
       ;;
     RK3399|RK3566|RK3588)
       add_emu_core nds drastic drastic-sa true
@@ -870,6 +872,7 @@ makeinstall_target() {
   case ${DEVICE} in
     H700|RK3326)
       add_emu_core ndsiware retroarch melondsds true
+      add_emu_core ndsiware melonds melonds-sa false
     ;;
     *)
       add_emu_core ndsiware retroarch melondsds true
