@@ -33,23 +33,34 @@ echo "========================================"
 
 echo ""
 echo "=== 1. KERNEL DEBUG FLAGS ==="
-if [ -f /proc/config.gz ]; then
+# Primary: /boot/config-* (always present)
+# Fallback: /proc/config.gz (only if CONFIG_IKCONFIG=y, disabled in production)
+KCONF_FILE="/boot/config-$(uname -r)"
+if [ -f "$KCONF_FILE" ]; then
+  KCONF=$(cat "$KCONF_FILE")
+  echo "  Source: $KCONF_FILE"
+elif [ -f /proc/config.gz ]; then
   KCONF=$(zcat /proc/config.gz)
+  echo "  Source: /proc/config.gz (IKCONFIG enabled — consider disabling for production)"
+else
+  KCONF=""
+  warn "No kernel config found (neither /boot/config-* nor /proc/config.gz)"
+fi
+
+if [ -n "$KCONF" ]; then
   check "DEBUG_KERNEL" "not set" "$(echo "$KCONF" | grep -c CONFIG_DEBUG_KERNEL=y | sed 's/1/SET/;s/0/not set/')"
   check "LOCKDEP" "not set" "$(echo "$KCONF" | grep -c CONFIG_LOCKDEP=y | sed 's/1/SET/;s/0/not set/')"
   check "KASAN" "not set" "$(echo "$KCONF" | grep -c CONFIG_KASAN=y | sed 's/1/SET/;s/0/not set/')"
   check "KMEMLEAK" "not set" "$(echo "$KCONF" | grep -c CONFIG_KMEMLEAK=y | sed 's/1/SET/;s/0/not set/')"
   check "FTRACE" "not set" "$(echo "$KCONF" | grep -c CONFIG_FTRACE=y | sed 's/1/SET/;s/0/not set/')"
   check "SCHEDSTATS" "not set" "$(echo "$KCONF" | grep -c CONFIG_SCHEDSTATS=y | sed 's/1/SET/;s/0/not set/')"
-  check "FRAME_POINTER" "not set" "$(echo "$KCONF" | grep -c CONFIG_FRAME_POINTER=y | sed 's/1/SET/;s/0/not set/')"
   check "PROFILING" "not set" "$(echo "$KCONF" | grep -c CONFIG_PROFILING=y | sed 's/1/SET/;s/0/not set/')"
 
   echo ""
   echo "  Kernel Timer: $(echo "$KCONF" | grep CONFIG_HZ= | head -1)"
   echo "  Preempt: $(echo "$KCONF" | grep CONFIG_PREEMPT= | head -1)"
   echo "  Optimize: $(echo "$KCONF" | grep CONFIG_CC_OPTIMIZE | head -1)"
-else
-  warn "/proc/config.gz not available (CONFIG_IKCONFIG disabled - OK for production)"
+  echo "  Frame Pointer: $(echo "$KCONF" | grep CONFIG_FRAME_POINTER= | head -1) (forced on ARM64)"
 fi
 
 echo ""
