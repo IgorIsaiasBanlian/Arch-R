@@ -32,7 +32,11 @@ fi
 
 pre_configure_target() {
   export CXXFLAGS="${CXXFLAGS} -Wno-error=array-bounds"
-  PKG_CMAKE_OPTS_TARGET+=" -DCMAKE_BUILD_TYPE=Release -DUSE_OPENMP=ON"
+  PKG_CMAKE_OPTS_TARGET+=" -DUSE_OPENMP=ON"
+  # -Ofast is intentional for Flycast: SH4 FPU emulation doesn't require
+  # strict IEEE 754, and Dreamcast hardware itself flushes denormals.
+  # Validated by JELOS/AmberELEC/ROCKNIX upstream for years.
+  sed -i 's/\-O[23]/-Ofast/' ${PKG_BUILD}/CMakeLists.txt
 }
 
 makeinstall_target() {
