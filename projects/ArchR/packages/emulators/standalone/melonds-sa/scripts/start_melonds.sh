@@ -164,15 +164,15 @@ else
     ROM="${1}"
 fi
 
-# QT platform - default to xcb
-export QT_QPA_PLATFORM=xcb
+# QT platform - use wayland on Wayland compositors, xcb otherwise
+if [ -n "${WAYLAND_DISPLAY}" ]; then
+    export QT_QPA_PLATFORM=wayland
+else
+    export QT_QPA_PLATFORM=xcb
+fi
 
-# QT platform - some device / driver combinations need wayland
-case ${HW_DEVICE} in
-    RK3566|RK3588|S922X)
-        [[ $(/usr/bin/gpudriver) == "libmali" ]] && export QT_QPA_PLATFORM=wayland
-    ;;
-esac
+# Qt requires UTF-8 locale
+export LC_ALL=en_US.UTF-8 2>/dev/null || export LC_ALL=C.UTF-8
 
 @PANFROST@
 @HOTKEY@
