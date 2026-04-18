@@ -1,5 +1,5 @@
---- a/arch/arm64/boot/dts/rockchip/px30.dtsi	2026-04-03 13:23:49.793309412 -0300
-+++ b/arch/arm64/boot/dts/rockchip/px30.dtsi	2026-04-03 13:24:16.188299986 -0300
+--- a/arch/arm64/boot/dts/rockchip/px30.dtsi	2026-04-18 00:12:46.801599300 -0300
++++ b/arch/arm64/boot/dts/rockchip/px30.dtsi	2026-04-18 00:15:35.235545979 -0300
 @@ -20,6 +20,7 @@
  	#size-cells = <2>;
  
@@ -21,17 +21,20 @@
  			opp-microvolt = <950000 950000 1350000>;
  			clock-latency-ns = <40000>;
  			opp-suspend;
-@@ -134,10 +136,16 @@
- 			opp-microvolt = <1300000 1300000 1350000>;
+@@ -129,15 +131,16 @@
+ 			opp-microvolt = <1175000 1175000 1350000>;
+ 			clock-latency-ns = <40000>;
+ 		};
+-		opp-1200000000 {
+-			opp-hz = /bits/ 64 <1200000000>;
+-			opp-microvolt = <1300000 1300000 1350000>;
++		opp-1416000000 {
++			opp-hz = /bits/ 64 <1416000000>;
++			opp-microvolt = <1350000 1350000 1350000>;
  			clock-latency-ns = <40000>;
  		};
 -		opp-1296000000 {
 -			opp-hz = /bits/ 64 <1296000000>;
-+		opp-1416000000 {
-+			opp-hz = /bits/ 64 <1416000000>;
-+			opp-microvolt = <1350000 1350000 1350000>;
-+			clock-latency-ns = <40000>;
-+		};
 +		opp-1512000000 {
 +			opp-hz = /bits/ 64 <1512000000>;
  			opp-microvolt = <1350000 1350000 1350000>;
@@ -40,7 +43,7 @@
  		};
  	};
  
-@@ -348,6 +356,32 @@
+@@ -348,6 +351,32 @@
  		};
  	};
  
@@ -73,22 +76,10 @@
  	pmugrf: syscon@ff010000 {
  		compatible = "rockchip,px30-pmugrf", "syscon", "simple-mfd";
  		reg = <0x0 0xff010000 0x0 0x1000>;
-@@ -1065,22 +1099,14 @@
- 	gpu_opp_table: opp-table-1 {
- 		compatible = "operating-points-v2";
- 
--		opp-200000000 {
--			opp-hz = /bits/ 64 <200000000>;
--			opp-microvolt = <950000>;
--		};
--		opp-300000000 {
--			opp-hz = /bits/ 64 <300000000>;
--			opp-microvolt = <975000>;
--		};
--		opp-400000000 {
--			opp-hz = /bits/ 64 <400000000>;
--			opp-microvolt = <1050000>;
--		};
+@@ -1077,10 +1106,14 @@
+ 			opp-hz = /bits/ 64 <400000000>;
+ 			opp-microvolt = <1050000>;
+ 		};
 -		opp-480000000 {
 -			opp-hz = /bits/ 64 <480000000>;
 +		opp-560000000 {
@@ -102,7 +93,7 @@
  	};
  
  	gpu: gpu@ff400000 {
-@@ -1091,10 +1117,25 @@
+@@ -1091,10 +1124,25 @@
  			     <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>;
  		interrupt-names = "job", "mmu", "gpu";
  		clocks = <&cru SCLK_GPU>;
