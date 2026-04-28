@@ -319,5 +319,8 @@ post_install() {
   enable_service systemd-timesyncd.service
   enable_service systemd-timesyncd-setup.service
   enable_service systemd-resolved.service
-  enable_service debug-shell.service
+  # debug-shell.service is for emergency root access via tty9 — keeping it
+  # enabled in production wastes RAM (a getty-like process) and exposes a
+  # passwordless root shell. Disable by default; users that want it can
+  # enable from settings.
 }

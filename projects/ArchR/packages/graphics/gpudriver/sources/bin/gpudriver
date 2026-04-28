@@ -6,14 +6,40 @@
 
 GPU_DRIVER_SETTING_KEY="gpu.driver"
 
+# When the device ships no panfrost DTB overlay, panfrost selection is a
+# brick: even with the runtime fallback, sway/UI starts before the
+# fallback finishes, leaves a half-initialized GPU, and the next boot
+# ends in a black screen. Detect the empty placeholder substituted by
+# package.mk and refuse panfrost in that case.
+DTB_OVERLAY_LOAD_CMD="@DTB_OVERLAY_LOAD@"
+PANFROST_AVAILABLE=true
+[ -z "${DTB_OVERLAY_LOAD_CMD}" ] && PANFROST_AVAILABLE=false
+
 get_current_driver() {
   CONFDRIVER=$(get_setting ${GPU_DRIVER_SETTING_KEY})
   if [ -z ${CONFDRIVER} ]; then
     CONFDRIVER="libmali"              # DEFAULT
     set_setting ${GPU_DRIVER_SETTING_KEY} ${CONFDRIVER}
   fi
+  # Self-heal: stale "panfrost" setting on a device that can't run it.
+  if [ "${CONFDRIVER}" = "panfrost" ] && [ "${PANFROST_AVAILABLE}" = "false" ]; then
+    logger -t gpudriver "panfrost not supported on this device (no DTB overlay); reverting to libmali"
+    CONFDRIVER="libmali"
+    set_setting ${GPU_DRIVER_SETTING_KEY} ${CONFDRIVER}
+  fi
 }
 
+
+# Verify the GPU node ended up bound to a kernel driver. A successful
+# modprobe doesn't always mean the driver actually attached to the
+# hardware (mismatched compatible string, regulator/clock failure, etc).
+# `/sys/class/drm/card0` only exists when *some* DRM driver is bound.
+gpu_is_bound() {
+  for c in /sys/class/drm/card[0-9]*; do
+    [ -e "$c" ] && return 0
+  done
+  return 1
+}
 
 # When loading a driver, do two things:
 #   * ensure needed driver is loaded and other is not
@@ -23,7 +49,7 @@ load_driver() {
 
   case ${DRIVER_TO_LOAD} in
     "libmali")
-      modprobe -r @PAN@
+      modprobe -r @PAN@ 2>/dev/null
       modprobe mali_kbase
 
       # Bind-mount mali GLES libraries over mesa if not already done.
@@ -42,7 +68,7 @@ load_driver() {
       done
       ;;
     "panfrost")
-      modprobe -r mali_kbase
+      modprobe -r mali_kbase 2>/dev/null
       modprobe @PAN@
 
       mount | grep -q "on /usr/lib/libEGL.so" && find /usr/lib/mali -type f -exec bash -c 'lib={}; umount ${lib/\/mali\//\/}' ';'
@@ -63,17 +89,38 @@ load_driver() {
 
 case "$1" in
   "--options")
-    echo "panfrost libmali"
+    if [ "${PANFROST_AVAILABLE}" = "true" ]; then
+      echo "panfrost libmali"
+    else
+      echo "libmali"
+    fi
     ;;
   "--start")
     get_current_driver
     load_driver ${CONFDRIVER}
+    # If the requested driver didn't actually bind, fall back to the
+    # other one so the user gets a graphical system either way. Mali-G31
+    # on RK3326 is normally driven by libmali; if mali_kbase decides the
+    # regulator/clock state is bad it silently fails to bind, leaving a
+    # composited system with software rasterization that crawls. Try the
+    # alternate driver instead of letting the user think their device is
+    # just slow.
+    if ! gpu_is_bound; then
+      ALT="libmali"
+      [ "${CONFDRIVER}" = "libmali" ] && ALT="panfrost"
+      logger -t gpudriver "${CONFDRIVER} did not bind to GPU; trying ${ALT}"
+      load_driver "${ALT}" 2>/dev/null
+    fi
     ;;
   "libmali")
     set_setting ${GPU_DRIVER_SETTING_KEY} $1
     @DTB_OVERLAY_UNLOAD@
     ;;
   "panfrost")
+    if [ "${PANFROST_AVAILABLE}" = "false" ]; then
+      echo "panfrost is not supported on this device" >&2
+      exit 2
+    fi
     set_setting ${GPU_DRIVER_SETTING_KEY} $1
     @DTB_OVERLAY_LOAD@
     ;;

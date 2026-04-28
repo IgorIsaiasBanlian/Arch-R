@@ -27,8 +27,12 @@ post_makeinstall_target() {
       DTB_OVERLAY_UNLOAD="\/usr\/bin\/dtb_overlay set driver-gpu None"
     ;;
     *)
+      # No DTB overlay shipped for this device. The gpudriver script
+      # detects the empty placeholder and (a) hides panfrost from the
+      # UI, (b) refuses runtime switches, and (c) on boot falls back to
+      # libmali if a stale setting still points at panfrost.
       PAN="panfrost"
-      DTB_OVERLAY=""
+      DTB_OVERLAY_LOAD=""
       DTB_OVERLAY_UNLOAD=""
     ;;
   esac

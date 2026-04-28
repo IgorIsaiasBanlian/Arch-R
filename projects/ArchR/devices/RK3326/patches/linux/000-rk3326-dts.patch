@@ -76,7 +76,7 @@
  	pmugrf: syscon@ff010000 {
  		compatible = "rockchip,px30-pmugrf", "syscon", "simple-mfd";
  		reg = <0x0 0xff010000 0x0 0x1000>;
-@@ -1077,10 +1106,14 @@
+@@ -1077,10 +1106,19 @@
  			opp-hz = /bits/ 64 <400000000>;
  			opp-microvolt = <1050000>;
  		};
@@ -90,10 +90,15 @@
 +			opp-hz = /bits/ 64 <600000000>;
 +			opp-microvolt = <1150000>;
 +		};
++		opp-650000000 {
++			opp-hz = /bits/ 64 <650000000>;
++			opp-microvolt = <1150000>;
++			turbo-mode;
++		};
  	};
- 
+
  	gpu: gpu@ff400000 {
-@@ -1091,10 +1124,25 @@
+@@ -1091,10 +1129,25 @@
  			     <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>;
  		interrupt-names = "job", "mmu", "gpu";
  		clocks = <&cru SCLK_GPU>;
