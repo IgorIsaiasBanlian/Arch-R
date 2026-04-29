@@ -342,9 +342,17 @@ def make_dtbo(dtb_data, args):
 
     compat = dt.get_node('/').get_property('compatible').data[0]
     args['logger'].info(f"compatible {compat}")
-    if 'odroidgo3' in compat:
-        # R36S base DTS already has reset-gpios, power-supply, backlight
-        # Only the panel description/timings/init-sequence are needed in overlay
+    # Original-only short-circuit: the original kernel DTB (rk3326-odroid-go2)
+    # already has the correct reset-gpios, power-supply and backlight wiring,
+    # so the DTBO only needs panel description/timings/init-sequence.
+    #
+    # Gate by subdevice (passed as 'SDORIG' from generator.sh), NOT by vendor
+    # compatible alone: several clone vendor DTBs (e.g. G80CA V1.2 04-22/04-23
+    # Panel 8 and 9, G80C V1.1 Panel 9) ship with
+    # `compatible = "rockchip,rk3326-odroidgo3-linux"` despite being clone
+    # hardware. Trusting that string skipped the GPIO overrides on clones and
+    # produced the "backlight on, no image" black screen on those boards.
+    if 'SDORIG' in args['flags'] and 'odroidgo3' in compat:
         return overlay.to_dtb()
 
     # copy reset config

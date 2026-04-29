@@ -133,6 +133,20 @@ process_subdevice() {
     local -n suffix_arr="VARIANT_SUFFIX_${kind}"
     log "Default joypad: ${kind} (${flags_arr[0]:-K36})"
 
+    # SDORIG: trust the `odroidgo3 in compat` early-return in archr-dtbo.py.
+    # Original and soysauce kernel DTBs (rk3326-odroid-go2.dtb and
+    # rk3326-gameconsole-soysauce.dtb) already carry the correct
+    # reset-gpios / vcc18-lcd0 / backlight wiring, so the DTBO only needs
+    # the panel description. Clone hardware needs the GPIO overrides
+    # because the eeclone kernel DTB is wired differently from the actual
+    # boards; several clone vendor DTBs are mislabeled with `odroidgo3`
+    # compatible and previously slipped through the short-circuit, leaving
+    # the overlay without GPIO fixes (= "backlight on, no image").
+    local sd_prefix=""
+    case "$sd" in
+        original|soysauce) sd_prefix="SDORIG" ;;
+    esac
+
     local count=0
     # Sort makes output deterministic across filesystems.
     while IFS= read -r mb_dir; do
@@ -153,7 +167,11 @@ process_subdevice() {
             local flags="${flags_arr[$i]}"
             local suffix="${suffix_arr[$i]}"
             local out_file="${out_dir}/${sanitized}${suffix}.dtbo"
-            generate_overlay "$input_dtb" "$out_file" "${sd}/${mb_name}${suffix}" "$flags"
+            local effective_flags="$flags"
+            if [ -n "$sd_prefix" ]; then
+                effective_flags="${sd_prefix}${flags:+-${flags}}"
+            fi
+            generate_overlay "$input_dtb" "$out_file" "${sd}/${mb_name}${suffix}" "$effective_flags"
         done
         count=$((count + 1))
     done < <(find "$src_dir" -mindepth 1 -maxdepth 1 -type d | sort)
