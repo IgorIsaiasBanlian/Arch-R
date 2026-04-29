@@ -23,12 +23,12 @@ chmod +x /storage/.config/PortMaster/mapper.txt
 
 
 #Use our gamecontrollerdb.txt
-rm -r gamecontrollerdb.txt
+rm -rf gamecontrollerdb.txt
 ln -sf /usr/config/SDL-GameControllerDB/gamecontrollerdb.txt gamecontrollerdb.txt
 
 #Delete old PortMaster fold first (we can probably remove this later)
-if [ ! -f "/storage/roms/ports/PortMaster/pugwash" ]; then
-    rm -r /storage/roms/ports/PortMaster
+if [ -d "/storage/roms/ports/PortMaster" ] && [ ! -f "/storage/roms/ports/PortMaster/pugwash" ]; then
+    rm -rf /storage/roms/ports/PortMaster
 fi
 
 #Make sure roms/ports/PortMaster folder exists
@@ -38,13 +38,11 @@ if [ ! -d "/storage/roms/ports/PortMaster" ]; then
 fi
 
 #We dont use tasksetter, delete it
-if [ -f /storage/roms/ports/PortMaster/tasksetter ]; then
-  rm -r /storage/roms/ports/PortMaster/tasksetter
-fi
+rm -rf /storage/roms/ports/PortMaster/tasksetter
 
 #Use PortMasters gptokeyb
-rm gptokeyb
-cp /storage/roms/ports/PortMaster/gptokeyb gptokeyb
+rm -f gptokeyb
+[ -x /storage/roms/ports/PortMaster/gptokeyb ] && cp /storage/roms/ports/PortMaster/gptokeyb gptokeyb
 
 #Copy over required files for ports
 cp /storage/.config/PortMaster/control.txt /storage/roms/ports/PortMaster/control.txt

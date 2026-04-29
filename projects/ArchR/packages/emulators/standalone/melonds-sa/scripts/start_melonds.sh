@@ -205,4 +205,5 @@ fi
 
 $GPTOKEYB "melonDS" -c "${CONF_DIR}/melonDS.gptk" &
 ${EMUPERF} /usr/bin/melonDS -f "${ROM}"
-kill -9 "$(pidof gptokeyb)"
+_gptokeyb_pid="$(pidof gptokeyb 2>/dev/null)"
+[ -n "${_gptokeyb_pid}" ] && kill -9 ${_gptokeyb_pid}

@@ -123,5 +123,11 @@ ARG=${1//[\\]/}
 # Panfrost optimization: forcepack reduces draw call overhead on Mali-G31
 export PAN_MESA_DEBUG=forcepack
 export MESA_NO_ERROR=1
+# Mesa GL command thread: PPSSPP issues many small GL calls per frame
+# (sprite/draw bursts) and the standalone build keeps render and CPU on
+# separate threads internally. Letting Mesa marshal GL on its own
+# thread cuts per-call dispatch latency on Cortex-A35. See
+# docs/mesa-glthread-matrix.md.
+export MESA_GLTHREAD=true
 
 ${EMUPERF} ppsspp --pause-menu-exit "${ARG}"

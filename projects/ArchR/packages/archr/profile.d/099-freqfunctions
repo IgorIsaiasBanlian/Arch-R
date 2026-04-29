@@ -66,20 +66,24 @@ set_cpu_boost() {
   esac
 }
 
-# Pin CPU max_freq across all policies to the highest available OPP
-# (boost included if cpufreq/boost=1 was already toggled). Mirrors the
-# GPU helper above. ROCKNIX achieves the same effect by trimming the DT
-# ladder; we keep the full ladder for idle and force the ceiling up at
-# runtime.
+# Pin CPU max_freq across all policies to the highest available OPP.
+# Turbo OPPs (DT `turbo-mode`) live in scaling_boost_frequencies, NOT in
+# scaling_available_frequencies, even after cpufreq/boost=1. Combine
+# both so "highest" really hits 1512 MHz on RK3326 when the user's
+# turbo switch is on, and naturally falls back to 1416 when off (boost
+# file then reports an empty list).
 set_cpu_max_freq() {
   for POLICY in /sys/devices/system/cpu/cpufreq/policy[0-9]*; do
     [ -e "${POLICY}/scaling_max_freq" ] || continue
-    [ -e "${POLICY}/cpuinfo_max_freq" ] || continue
+    [ -e "${POLICY}/scaling_available_frequencies" ] || continue
 
     local target=""
     case ${1} in
       highest)
-        target=$(cat "${POLICY}/cpuinfo_max_freq")
+        target=$( {
+          cat "${POLICY}/scaling_available_frequencies" 2>/dev/null
+          cat "${POLICY}/scaling_boost_frequencies" 2>/dev/null
+        } | tr ' ' '\n' | grep -E '^[0-9]+$' | sort -n | tail -n1)
         ;;
       *)
         target=${1}
@@ -93,15 +97,18 @@ set_cpu_max_freq() {
 set_cpu_min_freq() {
   for POLICY in /sys/devices/system/cpu/cpufreq/policy[0-9]*; do
     [ -e "${POLICY}/scaling_min_freq" ] || continue
-    [ -e "${POLICY}/cpuinfo_min_freq" ] || continue
+    [ -e "${POLICY}/scaling_available_frequencies" ] || continue
 
     local target=""
     case ${1} in
       highest)
-        target=$(cat "${POLICY}/cpuinfo_max_freq")
+        target=$( {
+          cat "${POLICY}/scaling_available_frequencies" 2>/dev/null
+          cat "${POLICY}/scaling_boost_frequencies" 2>/dev/null
+        } | tr ' ' '\n' | grep -E '^[0-9]+$' | sort -n | tail -n1)
         ;;
       lowest)
-        target=$(cat "${POLICY}/cpuinfo_min_freq")
+        target=$(tr ' ' '\n' <"${POLICY}/scaling_available_frequencies" | grep -E '^[0-9]+$' | sort -n | head -n1)
         ;;
       *)
         target=${1}
@@ -176,11 +183,13 @@ restore_cpu_boost() {
 }
 
 performance() {
-  # Force boost ON regardless of the user setting during gameplay so the
-  # 1512 MHz OPP is reachable. RK3326's BSP-marked turbo OPP is otherwise
-  # locked behind cpufreq/boost. ondemand/schedutil paths restore the
-  # user preference.
-  set_cpu_boost on
+  # Honor the user's "Enable CPU Overclock" switch from ES even during
+  # gameplay: gameplay shouldn't silently enable turbo behind the user's
+  # back. If they want the 1512 MHz OPP, they toggle it on; if they
+  # prefer to stay at 1416 MHz for thermals/battery, gameplay respects
+  # that. set_cpu_max_freq highest then pins to the highest currently
+  # available frequency (1512 if boost on, 1416 if off).
+  restore_cpu_boost
   set_cpu_gov performance
   set_cpu_max_freq highest
   set_dmc_gov performance

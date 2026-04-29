@@ -187,8 +187,12 @@
 # Root filesystem type (squashfs / ext4)
   ROOTFS_TYPE="ext4"
 
-# Boot partition size (FAT32, kernel + DTBs + bootloader), in MB
-  BOOT_SIZE=256
+# Boot partition size (FAT32, kernel + DTBs + bootloader), in MB.
+# 272 MB chosen so the partition exceeds 65525 4-KB clusters and
+# qualifies as real FAT32 by spec (256 MB landed at 65404 clusters,
+# 121 short, triggering "less than the required minimum" warnings on
+# every dosfsck run).
+  BOOT_SIZE=272
 
 # Root partition size (ext4 rootfs), in MB
   ROOT_SIZE=4608

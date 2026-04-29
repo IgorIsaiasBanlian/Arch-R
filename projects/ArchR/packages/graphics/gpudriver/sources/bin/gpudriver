@@ -6,25 +6,10 @@
 
 GPU_DRIVER_SETTING_KEY="gpu.driver"
 
-# When the device ships no panfrost DTB overlay, panfrost selection is a
-# brick: even with the runtime fallback, sway/UI starts before the
-# fallback finishes, leaves a half-initialized GPU, and the next boot
-# ends in a black screen. Detect the empty placeholder substituted by
-# package.mk and refuse panfrost in that case.
-DTB_OVERLAY_LOAD_CMD="@DTB_OVERLAY_LOAD@"
-PANFROST_AVAILABLE=true
-[ -z "${DTB_OVERLAY_LOAD_CMD}" ] && PANFROST_AVAILABLE=false
-
 get_current_driver() {
   CONFDRIVER=$(get_setting ${GPU_DRIVER_SETTING_KEY})
   if [ -z ${CONFDRIVER} ]; then
     CONFDRIVER="libmali"              # DEFAULT
-    set_setting ${GPU_DRIVER_SETTING_KEY} ${CONFDRIVER}
-  fi
-  # Self-heal: stale "panfrost" setting on a device that can't run it.
-  if [ "${CONFDRIVER}" = "panfrost" ] && [ "${PANFROST_AVAILABLE}" = "false" ]; then
-    logger -t gpudriver "panfrost not supported on this device (no DTB overlay); reverting to libmali"
-    CONFDRIVER="libmali"
     set_setting ${GPU_DRIVER_SETTING_KEY} ${CONFDRIVER}
   fi
 }
@@ -89,11 +74,7 @@ load_driver() {
 
 case "$1" in
   "--options")
-    if [ "${PANFROST_AVAILABLE}" = "true" ]; then
-      echo "panfrost libmali"
-    else
-      echo "libmali"
-    fi
+    echo "panfrost libmali"
     ;;
   "--start")
     get_current_driver
@@ -117,10 +98,6 @@ case "$1" in
     @DTB_OVERLAY_UNLOAD@
     ;;
   "panfrost")
-    if [ "${PANFROST_AVAILABLE}" = "false" ]; then
-      echo "panfrost is not supported on this device" >&2
-      exit 2
-    fi
     set_setting ${GPU_DRIVER_SETTING_KEY} $1
     @DTB_OVERLAY_LOAD@
     ;;
