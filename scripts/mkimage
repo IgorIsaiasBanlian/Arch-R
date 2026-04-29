@@ -182,13 +182,7 @@ alias mmd='mmd -i "${IMG_TMP}/part1.fat"'
 echo "image: creating filesystem on part1..."
 
 if [ "${BOOTLOADER}" = "syslinux" -o "${BOOTLOADER}" = "bcm2835-bootloader" -o "${BOOTLOADER}" = "u-boot" -o "${BOOTLOADER}" = "arm-efi" -o "${BOOTLOADER}" = "qcom-abl" ]; then
-  # 4 KB clusters (-s 8 with 512 B sectors) so the partition has at least
-  # 65525 clusters and qualifies as real FAT32 per spec. With -s 32 the
-  # 256 MB BOOT_SIZE fell to ~16k clusters, which dosfsck flagged on
-  # every boot ("less than the required minimum of 65525") and which a
-  # few RK3326 U-Boot builds occasionally read as FAT16 — observed as
-  # intermittent post-resize boot hangs.
-  mkfs.vfat -F 32 -S 512 -s 8 -i "${UUID_SYSTEM//-/}" -n "${DISTRO_BOOTLABEL}" "${IMG_TMP}/part1.fat" >"${SAVE_ERROR}" 2>&1 || show_error
+  mkfs.vfat -F 32 -S 512 -s 32 -i "${UUID_SYSTEM//-/}" -n "${DISTRO_BOOTLABEL}" "${IMG_TMP}/part1.fat" >"${SAVE_ERROR}" 2>&1 || show_error
 fi
 sync
 
@@ -367,7 +361,7 @@ fi # bootloader
 # reading the inconsistent backup intermittently)
 echo "image: checking filesystem on part1..."
 sync
-fsck.fat -a -w "${IMG_TMP}/part1.fat" >"${SAVE_ERROR}" 2>&1 || show_error
+fsck.fat -n "${IMG_TMP}/part1.fat" >"${SAVE_ERROR}" 2>&1 || show_error
 
 # merge part1 into disk image
 echo "image: merging part1 into disk image..."
@@ -384,7 +378,7 @@ if [ "${PROJECT}" = "Generic" ]; then
   sync
   # run fsck (auto-repair, see comment above)
   echo "image: checking filesystem on part1..."
-  fsck.fat -a -w "${IMG_TMP}/part1.fat" >"${SAVE_ERROR}" 2>&1 || show_error
+  fsck.fat -n "${IMG_TMP}/part1.fat" >"${SAVE_ERROR}" 2>&1 || show_error
   # merge modified part1 into tmp disk image
   echo "image: merging part1 into open virtual appliance..."
   dd if="${IMG_TMP}/part1.fat" of="${DISK_BASENAME}.tmp" bs=512 seek="${SYSTEM_PART_START}" conv=fsync,notrunc >"${SAVE_ERROR}" 2>&1 || show_error
