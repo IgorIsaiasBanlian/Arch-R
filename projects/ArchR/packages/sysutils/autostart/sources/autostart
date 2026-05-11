@@ -80,16 +80,32 @@ trace_step "archr-automount"
 tocon "Starting storage services..."
 systemctl start archr-automount
 
-### Run common start scripts
-for script in /usr/lib/autostart/common/*
-do
+### Run common start scripts in two phases:
+###   Phase A: 001-setup runs FIRST (gate). It creates /tmp/cache, the
+###     runtime dir, /storage/.config/profile.d, runs chksysconfig
+###     verify and sort_settings. Other scripts depend on these
+###     directories/settings being ready.
+###   Phase B: everything else runs concurrently. Each script touches a
+###     different domain (display, audio, network, GPU, joypad, etc.)
+###     and set_setting/get_setting serialize themselves via
+###     wait_lock + J_CONF_LOCK, so concurrent writes are safe.
+GATE_SCRIPT="/usr/lib/autostart/common/001-setup"
+if [ -x "${GATE_SCRIPT}" ]; then
+  log "Run ${GATE_SCRIPT}"
+  trace_step "common:${GATE_SCRIPT}"
+  "${GATE_SCRIPT}" 2>&1 >>${BOOTLOG}
+fi
+
+for script in /usr/lib/autostart/common/*; do
+  [ "${script}" = "${GATE_SCRIPT}" ] && continue
+  [ -x "${script}" ] || continue
   log "Run ${script}"
   trace_step "common:${script}"
-  ${script} 2>&1 >>${BOOTLOG}
+  ( "${script}" 2>&1 >>${BOOTLOG}; log "Done ${script}" ) &
 done
 wait
 
-### Run device start scripts
+### Run device start scripts (no parallel — usually 0-2 scripts, ordering may matter)
 if [ -d "/usr/lib/autostart/${HW_DEVICE}" ]
 then
   for script in "/usr/lib/autostart/${HW_DEVICE}"/*
