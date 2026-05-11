@@ -50,36 +50,29 @@ if [ -d /sys/class/pwm/pwmchip0 ]; then
   echo 0 > /sys/class/pwm/pwmchip0/pwm0/enable 2>/dev/null
 fi
 
-### Load platform specific quirks
-if [ -d "/usr/lib/autostart/quirks/platforms/${HW_DEVICE}" ]
-then
-  log "Run ${HW_DEVICE} quirks."
-  tocon "Applying ${HW_DEVICE} quirks..."
-  for script in "/usr/lib/autostart/quirks/platforms/${HW_DEVICE}"/*
-  do
-    log "Run ${script}"
-    trace_step "platform-quirk:${script}"
-    if [ -f "${script}" ]
-    then
-      "${script}" 2>&1 >>${BOOTLOG}
-    fi
-  done
-fi
+### Load platform + device quirks in parallel. Every quirk writes to its
+### own /storage/.config/profile.d/NNN-name file or to a hardware sysfs
+### path — they don't share state, so running them concurrently is safe
+### and trims several seconds off boot (most quirks are sub-second cats).
+### Each quirk is logged with its end-tag so a failure is still
+### attributable in /var/log/boot.log; the trace_step marker for slow
+### debugging picks the LAST-launched script (good enough — if a quirk
+### hangs we want to know what's still running, not the entry order).
+QUIRK_DIRS=""
+[ -d "/usr/lib/autostart/quirks/platforms/${HW_DEVICE}" ] && QUIRK_DIRS+=" /usr/lib/autostart/quirks/platforms/${HW_DEVICE}"
+[ -d "/usr/lib/autostart/quirks/devices/${QUIRK_DEVICE}"  ] && QUIRK_DIRS+=" /usr/lib/autostart/quirks/devices/${QUIRK_DEVICE}"
 
-### Load device specific quirks
-if [ -d "/usr/lib/autostart/quirks/devices/${QUIRK_DEVICE}" ]
-then
-  log "Run ${QUIRK_DEVICE} quirks."
-  tocon "Applying ${QUIRK_DEVICE} quirks..."
-  for script in "/usr/lib/autostart/quirks/devices/${QUIRK_DEVICE}"/*
-  do
-    log "Run ${script}"
-    trace_step "device-quirk:${script}"
-    if [ -f "${script}" ]
-    then
-      "${script}" 2>&1 >>${BOOTLOG}
-    fi
+if [ -n "${QUIRK_DIRS}" ]; then
+  tocon "Applying ${HW_DEVICE} / ${QUIRK_DEVICE} quirks..."
+  for QDIR in ${QUIRK_DIRS}; do
+    for script in "${QDIR}"/*; do
+      [ -f "${script}" ] || continue
+      log "Run ${script}"
+      trace_step "quirk:${script}"
+      ( "${script}" 2>&1 >>${BOOTLOG}; log "Done ${script}" ) &
+    done
   done
+  wait
 fi
 
 ### Start the automount service
