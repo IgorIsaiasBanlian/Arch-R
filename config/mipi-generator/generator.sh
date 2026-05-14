@@ -99,16 +99,17 @@ VARIANT_FLAGS_MM=("JPmm"    "JPk36"     "JPmm"     "JPmm-SRs" "JPk36-SRs"     "J
 VARIANT_SUFFIX_MM=(""       "_JPk36"    "_JPmm"    "_SRs"     "_JPk36_SRs"    "_JPmm_SRs")
 
 # Pick the variant flag/suffix arrays that match each subdevice's expected
-# default. Names are matched literally against $sd.
+# default. Every Y3506 (soysauce) vendor DTB we have inspected (V03 1104,
+# V03 1210 2507/2533, V03 0317, V04 2528, V04 253x P6/P7, V04 2548, V05
+# 2551, V05 2601) ships odroidgo3-joypad with amux-count=4 and
+# amux-channel-mapping — that's K36 (single-ADC + amux). The earlier
+# assumption that Y3506 was MyMini was wrong, and forcing JPmm here
+# made the overlay inject multi-ADC io-channels that the singleadc
+# driver ignores, leaving the sticks dead (see issue #27). K36 is the
+# safe default everywhere; MyMini boards (if any ever appear) can pick
+# the _JPmm suffix variant explicitly.
 default_variant_arrays() {
-    case "$1" in
-        soysauce)
-            echo "MM"
-            ;;
-        *)
-            echo "K36"
-            ;;
-    esac
+    echo "K36"
 }
 
 process_subdevice() {
