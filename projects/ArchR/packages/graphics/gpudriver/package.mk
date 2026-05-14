@@ -27,16 +27,17 @@ post_makeinstall_target() {
       DTB_OVERLAY_UNLOAD="\/usr\/bin\/dtb_overlay set driver-gpu None"
     ;;
     *)
-      # No DTB overlay shipped for this device. The gpudriver script
-      # detects the empty placeholder and (a) hides panfrost from the
-      # UI, (b) refuses runtime switches, and (c) on boot falls back to
-      # libmali if a stale setting still points at panfrost.
+      # No DTB overlay needed: kernel base DTS already has the GPU node
+      # with 'arm,mali-bifrost' compatible, so panfrost binds directly
+      # via modprobe. Switching between libmali and panfrost just
+      # requires loading/unloading the kernel module and swapping the
+      # userspace GL library binds.
       PAN="panfrost"
       DTB_OVERLAY_LOAD=""
       DTB_OVERLAY_UNLOAD=""
     ;;
   esac
-  
+
   sed -e "s/@PAN@/${PAN}/g" \
       -i  ${INSTALL}/usr/bin/gpudriver
 
