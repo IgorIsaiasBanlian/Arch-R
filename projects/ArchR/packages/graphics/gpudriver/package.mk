@@ -11,9 +11,17 @@ PKG_TOOLCHAIN="manual"
 PKG_LONGDESC="GPU driver util for switching between panfrost / panthor and libmali / libmali-vulkan"
 
 post_makeinstall_target() {
-  mkdir -p "${INSTALL}/usr/bin/"
-  cp -v "${PKG_BUILD}/bin/gpudriver" "${INSTALL}/usr/bin/"
-  
+  # Install OUTSIDE /usr/bin while the panfrost path is still unreliable
+  # on RK3326 clones. EmulationStation surfaces the GPU DRIVER selector
+  # only when `/usr/bin/gpudriver` exists (see es-app GuiMenu.cpp), so
+  # placing it under /usr/lib/archr/ hides the picker without removing
+  # any boot-time functionality — the autostart hook (003-gpudriver)
+  # calls this binary by full path. Move back to /usr/bin/gpudriver
+  # once panfrost on the Mali-G31 path stops hanging the kernel.
+  mkdir -p "${INSTALL}/usr/lib/archr/"
+  cp -v "${PKG_BUILD}/bin/gpudriver" "${INSTALL}/usr/lib/archr/"
+  GPUDRIVER_BIN="${INSTALL}/usr/lib/archr/gpudriver"
+
   # set the correct mesa pan kernel driver module based on device
   case ${DEVICE} in
     RK3588)
@@ -39,11 +47,11 @@ post_makeinstall_target() {
   esac
 
   sed -e "s/@PAN@/${PAN}/g" \
-      -i  ${INSTALL}/usr/bin/gpudriver
+      -i  "${GPUDRIVER_BIN}"
 
   sed -e "s/@DTB_OVERLAY_LOAD@/${DTB_OVERLAY_LOAD}/g" \
-      -i  ${INSTALL}/usr/bin/gpudriver
+      -i  "${GPUDRIVER_BIN}"
 
   sed -e "s/@DTB_OVERLAY_UNLOAD@/${DTB_OVERLAY_UNLOAD}/g" \
-      -i  ${INSTALL}/usr/bin/gpudriver
+      -i  "${GPUDRIVER_BIN}"
 }

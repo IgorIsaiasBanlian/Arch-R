@@ -25,7 +25,14 @@ log_event() {
   local msg="$1"
   mkdir -p "$(dirname "${GPUDRIVER_LOG}")" 2>/dev/null
   echo "$(date '+%Y-%m-%d %H:%M:%S') gpudriver: ${msg}" >>"${GPUDRIVER_LOG}" 2>/dev/null
-  logger -t gpudriver "${msg}" 2>/dev/null
+  # Intentionally do NOT call `logger` here. The parallel autostart Phase B
+  # bursts hundreds of log messages at once; the journald socket fills, and
+  # `logger` (a synchronous binary) blocks waiting for the daemon to drain.
+  # That deadlock pinned gpudriver between "calling load_driver panfrost"
+  # and the next log step on R36S 20260515 builds — the script never
+  # returned, the autostart wait never finished, and the watchdog reset
+  # the board. The on-disk echo above is enough for our post-mortem
+  # diagnostic needs.
 }
 
 # Verify the GPU node ended up bound to the requested kernel driver AND
@@ -102,7 +109,13 @@ load_driver() {
 
   case ${DRIVER_TO_LOAD} in
     "libmali")
-      modprobe -r @PAN@ 2>/dev/null
+      # Symmetric safety: only rmmod @PAN@ if loaded. In-tree panfrost
+      # is safer to unload than mali_kbase but skip anyway — a reboot
+      # gives a cleaner switch and matches the user's expectation that
+      # changing GPU driver requires a restart.
+      if lsmod 2>/dev/null | grep -q "^@PAN@ "; then
+        log_event "libmali: @PAN@ loaded — switch needs reboot to take effect"
+      fi
       modprobe mali_kbase
 
       # Bind-mount mali GLES libraries over mesa if not already done.
@@ -121,8 +134,75 @@ load_driver() {
       done
       ;;
     "panfrost")
-      modprobe -r mali_kbase 2>/dev/null
-      modprobe @PAN@
+      # Snapshot ANY kernel messages before we touch the driver. If the
+      # system is already in a degraded state by the time gpudriver
+      # runs (e.g. an earlier autostart script tickled something), we
+      # want to see it in the post-mortem rather than blaming the
+      # subsequent modprobe.
+      log_event "panfrost: step 0a - capturing pre-state dmesg"
+      dmesg -T 2>/dev/null | tail -100 >>"${GPUDRIVER_LOG}.dmesg-pre" 2>/dev/null
+      log_event "panfrost: step 0b - dmesg pre-state captured"
+
+      # mali_kbase is the ARM vendor out-of-tree blob. Its driver-exit
+      # path double-frees the GPU regulator and clock at unbind time
+      # (observed kernel Oops in __clk_put at POISON_LIST_END +
+      # _regulator_put WARN, cascading into further oopses until the
+      # board watchdog resets — confirmed on R36S with kernel 6.12.79).
+      # Removing it in-place is therefore unsafe: skip the rmmod
+      # entirely if the module is loaded and let the user reboot to
+      # land in a fresh kernel where the module never came up. If the
+      # module is NOT loaded we can proceed; this is the normal case
+      # on a fresh boot where gpu.driver=panfrost.
+      if lsmod 2>/dev/null | grep -q "^mali_kbase "; then
+        log_event "panfrost: step 1 - mali_kbase IS LOADED, skipping rmmod (would crash kernel) — reboot required for switch to take effect"
+      else
+        log_event "panfrost: step 1 - mali_kbase not loaded, no rmmod needed"
+      fi
+      log_event "panfrost: step 2 - rmmod check done"
+
+      # Snapshot the last dmesg line so we can quote only what the
+      # panfrost probe added.
+      PRE_DMESG_COUNT=$(dmesg 2>/dev/null | wc -l)
+      log_event "panfrost: step 3 - dmesg snapshot taken (count=${PRE_DMESG_COUNT})"
+
+      # Launch modprobe asynchronously. `timeout` would normally cap
+      # this, but the panfrost probe on certain RK3326 clones blocks
+      # the modprobe process inside an uninterruptible kernel syscall
+      # (D state) — neither SIGTERM from `timeout` nor SIGKILL from a
+      # subsequent kill can release it. The script must never block
+      # waiting for modprobe; instead we poll for the platform bind to
+      # appear, give up after 30s, and let gpu_is_bound conclude with
+      # a failure that triggers the libmali fallback.
+      modprobe @PAN@ 2>/dev/null &
+      MODPROBE_PID=$!
+      log_event "panfrost: step 4 - modprobe launched pid=${MODPROBE_PID}"
+
+      _iter=0
+      for _wait in $(seq 1 30); do
+        _iter=$_wait
+        for g in /sys/bus/platform/drivers/panfrost/[a-f0-9]*.gpu; do
+          [ -e "$g" ] && break 2
+        done
+        kill -0 ${MODPROBE_PID} 2>/dev/null || break
+        sleep 1
+      done
+      log_event "panfrost: step 5 - poll loop exited at iter=${_iter}"
+
+      if ls /sys/bus/platform/drivers/panfrost/[a-f0-9]*.gpu >/dev/null 2>&1; then
+        log_event "panfrost: step 6a - platform bind observed"
+      else
+        if kill -0 ${MODPROBE_PID} 2>/dev/null; then
+          log_event "panfrost: step 6b - modprobe still running, probe stuck"
+        else
+          log_event "panfrost: step 6c - modprobe exited without bind"
+        fi
+      fi
+
+      # Drop the kernel messages emitted during the probe to the log so
+      # the failure mode is recoverable without a serial console.
+      log_event "panfrost: step 7 - capturing dmesg delta..."
+      dmesg 2>/dev/null | tail -n +$((PRE_DMESG_COUNT + 1)) | head -40 >>"${GPUDRIVER_LOG}" 2>/dev/null
+      log_event "panfrost: step 8 - dmesg captured"
 
       # Reverse every bind the libmali path did. Order matters: undo the
       # libEGL/libGLESv2/etc. binds from /usr/lib/mali first, then the
@@ -167,7 +247,37 @@ case "$1" in
   "--start")
     get_current_driver
     log_event "boot: selected driver=${CONFDRIVER}"
+
+    # Boot-loop protection. Some hardware variants kernel-panic on
+    # `modprobe panfrost` (observed on RK3326 clones), which the watchdog
+    # then resets — so the system never reaches gpu_is_bound to record
+    # the failure, and the next boot tries panfrost again, ad infinitum.
+    # We drop a sentinel on /storage before the modprobe and only clear
+    # it once we know the driver bound successfully. On the next boot
+    # we look for the sentinel: if present, the previous attempt with
+    # this driver crashed before recovery — silently force libmali and
+    # rewrite the setting so the user can pick again from a working UI.
+    SENTINEL="/storage/.config/gpudriver.attempting"
+    if [ -f "${SENTINEL}" ]; then
+      PREV="$(cat "${SENTINEL}" 2>/dev/null)"
+      log_event "previous boot crashed while loading ${PREV} — forcing libmali"
+      rm -f "${SENTINEL}"
+      if [ "${CONFDRIVER}" = "${PREV}" ] && [ "${PREV}" != "libmali" ]; then
+        CONFDRIVER="libmali"
+        set_setting ${GPU_DRIVER_SETTING_KEY} libmali
+      fi
+    fi
+
+    # Use dd with oflag=sync so the sentinel is on the SD (not in page
+    # cache) BEFORE we touch the GPU driver. A subsequent kernel hang
+    # or watchdog reset would otherwise drop the sentinel and the boot
+    # after that would try panfrost again, looping.
+    echo "${CONFDRIVER}" | dd of="${SENTINEL}" oflag=sync 2>/dev/null
+    log_event "sentinel persisted: ${CONFDRIVER}"
+
+    log_event "calling load_driver ${CONFDRIVER}"
     load_driver ${CONFDRIVER}
+    log_event "load_driver returned"
     # If the requested driver didn't actually bind, fall back to the
     # other one so the user gets a graphical system either way. Mali-G31
     # on RK3326 is normally driven by libmali; if mali_kbase decides the
@@ -182,17 +292,35 @@ case "$1" in
       load_driver "${ALT}" 2>/dev/null
       if gpu_is_bound "${ALT}"; then
         log_event "fallback to ${ALT} succeeded"
+        # Persist the working driver as the new default so the user is
+        # not asked to confirm again on next reboot.
+        set_setting ${GPU_DRIVER_SETTING_KEY} "${ALT}"
       else
         log_event "fallback to ${ALT} ALSO FAILED — system will run software-rendered"
       fi
     fi
+
+    # Driver bound (or fallback ran). Clear the sentinel so the next boot
+    # does NOT think the current boot crashed.
+    rm -f "${SENTINEL}" 2>/dev/null
+    sync 2>/dev/null
     ;;
   "libmali")
     set_setting ${GPU_DRIVER_SETTING_KEY} $1
+    # Force the setting onto disk before we return control to the UI,
+    # which may immediately trigger a reboot.
+    sync
     @DTB_OVERLAY_UNLOAD@
     ;;
   "panfrost")
     set_setting ${GPU_DRIVER_SETTING_KEY} $1
+    # Force the setting onto disk before we return control to the UI,
+    # which may immediately trigger a reboot ("Reboot now" in the popup
+    # is dispatched synchronously; ext4 might still have the new value
+    # in the page cache, not on the SD). Without this sync the next
+    # boot could still read gpu.driver=libmali and the user perceives
+    # the switch as silently broken.
+    sync
     @DTB_OVERLAY_LOAD@
     ;;
   "")
