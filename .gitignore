@@ -172,4 +172,4 @@ packages/sysutils/open-vm-tools/
 
 #other
 docs/*
-bench-results/
+bench-results/config/mipi-generator/__pycache__/

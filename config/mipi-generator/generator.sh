@@ -148,6 +148,19 @@ process_subdevice() {
         original|soysauce) sd_prefix="SDORIG" ;;
     esac
 
+    # Soysauce (Y3506) boards have NO external speaker amplifier on
+    # the PCB; the rk817 SPKO line drives the speaker directly. The
+    # vendor BSP 4.4 hides this with hardcoded DAPM widgets in
+    # rk817_codec.c, but mainline ASoC respects the DT strictly, so
+    # without the NAm flag the speaker stays muted on every Y3506
+    # board (most visibly on V05 where users actually use it). We
+    # append NAm to every soysauce overlay so the generator picks the
+    # `rk817-sound-spko-direct` card variant.
+    local audio_flag=""
+    case "$sd" in
+        soysauce) audio_flag="NAm" ;;
+    esac
+
     local count=0
     # Sort makes output deterministic across filesystems.
     while IFS= read -r mb_dir; do
@@ -168,10 +181,16 @@ process_subdevice() {
             local flags="${flags_arr[$i]}"
             local suffix="${suffix_arr[$i]}"
             local out_file="${out_dir}/${sanitized}${suffix}.dtbo"
-            local effective_flags="$flags"
-            if [ -n "$sd_prefix" ]; then
-                effective_flags="${sd_prefix}${flags:+-${flags}}"
-            fi
+
+            # Compose the flag string in stable order:
+            # <sd_prefix>-<audio_flag>-<variant flags>
+            local parts=()
+            [ -n "$sd_prefix" ] && parts+=("$sd_prefix")
+            [ -n "$audio_flag" ] && parts+=("$audio_flag")
+            [ -n "$flags" ] && parts+=("$flags")
+            local effective_flags
+            effective_flags="$(IFS=-; echo "${parts[*]}")"
+
             generate_overlay "$input_dtb" "$out_file" "${sd}/${mb_name}${suffix}" "$effective_flags"
         done
         count=$((count + 1))

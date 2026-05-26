@@ -188,7 +188,38 @@
         };
 };
 
-/* Override sound card from r3xs.dtsi: add speaker amplifier */
+/*
+ * Sound card layout for the R36S family.
+ *
+ * The default `rk817-sound` (overridden right below) keeps the
+ * Speaker Amp routing that the R36S original and most clones need.
+ * That node stays enabled by default so any board the overlay
+ * generator cannot positively re-classify still gets functional
+ * audio (the historic behaviour up to v2.0-rc3).
+ *
+ * Three additional variant cards are pre-defined with
+ * status = "disabled" so the overlay can switch to them when the
+ * vendor DTB does not match the default assumption:
+ *
+ *   rk817-sound-amplified : external speaker amp gated by a GPIO
+ *                           (explicit re-affirmation of the default
+ *                           for boards where the overlay needs to
+ *                           rewrite the amp enable line).
+ *   rk817-sound-simple    : external amp on a regulator, no GPIO
+ *                           gate (a handful of clone batches).
+ *   rk817-sound-spko-direct: speaker driven directly from rk817 SPKO
+ *                           with no external amp at all (Soysauce
+ *                           V05 and any board where the amp circuit
+ *                           was depopulated). Without this variant
+ *                           V05 boots with speaker muted, because
+ *                           mainline ASoC will not route to SPKO
+ *                           through a card that declares the Speaker
+ *                           widget behind an Amp.
+ *
+ * When the overlay enables one of these variants it also writes
+ * status = "disabled" on the default `rk817-sound`, so the kernel
+ * always sees exactly one active simple-audio-card.
+ */
 / {
 	rk817-sound {
 		simple-audio-card,aux-devs = <&spk_amp>;
@@ -197,6 +228,102 @@
 			"Headphones", "HPOL",
 			"Headphones", "HPOR",
 			"Speaker Amp INL", "SPKO";
+	};
+
+	rk817-sound-amplified {
+		compatible = "simple-audio-card";
+		pinctrl-names = "default";
+		pinctrl-0 = <&hp_det>;
+		simple-audio-card,name = "rk817_ext";
+		simple-audio-card,aux-devs = <&spk_amp>;
+		simple-audio-card,format = "i2s";
+		simple-audio-card,hp-det-gpio = <&gpio2 RK_PC6 GPIO_ACTIVE_HIGH>;
+		simple-audio-card,mclk-fs = <256>;
+		simple-audio-card,widgets =
+			"Headphone", "Headphones",
+			"Speaker", "Internal Speakers";
+		/* The Y3506 / R36S clone speaker is mono, but the amp is
+		 * stereo. We route both amp inputs to HPOL/HPOR so the
+		 * second channel doesn't latch the amp on permanently. */
+		simple-audio-card,routing =
+			"Headphones", "HPOL",
+			"Headphones", "HPOR",
+			"Internal Speakers", "Speaker Amp OUTL",
+			"Internal Speakers", "Speaker Amp OUTR",
+			"Speaker Amp INL", "HPOL",
+			"Speaker Amp INR", "HPOR";
+
+		simple-audio-card,pin-switches = "Internal Speakers";
+
+		status = "disabled";
+
+		simple-audio-card,codec {
+			sound-dai = <&rk817>;
+		};
+
+		simple-audio-card,cpu {
+			sound-dai = <&i2s1_2ch>;
+		};
+	};
+
+	rk817-sound-simple {
+		compatible = "simple-audio-card";
+		pinctrl-names = "default";
+		pinctrl-0 = <&hp_det>;
+		simple-audio-card,name = "rk817_ext";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,hp-det-gpio = <&gpio2 RK_PC6 GPIO_ACTIVE_HIGH>;
+		simple-audio-card,mclk-fs = <256>;
+		simple-audio-card,widgets =
+			"Headphone", "Headphones",
+			"Speaker", "Internal Speakers";
+		simple-audio-card,routing =
+			"Headphones", "HPOL",
+			"Headphones", "HPOR",
+			"Internal Speakers", "SPKO";
+
+		status = "disabled";
+
+		simple-audio-card,codec {
+			sound-dai = <&rk817>;
+		};
+
+		simple-audio-card,cpu {
+			sound-dai = <&i2s1_2ch>;
+		};
+	};
+
+	rk817-sound-spko-direct {
+		compatible = "simple-audio-card";
+		pinctrl-names = "default";
+		pinctrl-0 = <&hp_det>;
+		simple-audio-card,name = "rk817_ext";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,hp-det-gpio = <&gpio2 RK_PC6 GPIO_ACTIVE_HIGH>;
+		simple-audio-card,mclk-fs = <256>;
+		simple-audio-card,widgets =
+			"Microphone", "Mic Jack",
+			"Headphone", "Headphones",
+			"Speaker", "Internal Speaker";
+		simple-audio-card,routing =
+			"MICL", "Mic Jack",
+			"Headphones", "HPOL",
+			"Headphones", "HPOR",
+			"Internal Speaker", "SPKO";
+
+		/* Userspace can mute the speaker when headphones are
+		 * plugged via this pin-switch. */
+		simple-audio-card,pin-switches = "Internal Speaker";
+
+		status = "disabled";
+
+		simple-audio-card,codec {
+			sound-dai = <&rk817>;
+		};
+
+		simple-audio-card,cpu {
+			sound-dai = <&i2s1_2ch>;
+		};
 	};
 };
 
