@@ -1,5 +1,12 @@
 -include $(HOME)/.archr/options
 
+# Normalise OFFICIAL once, before any recipe runs. `override` makes
+# this assignment win against MAKEFLAGS cmdline propagation, so
+# recursive make invocations (build_distro -> make image) see the
+# canonical "yes" value instead of the raw "y" / "Y" / "1" the user
+# passed on the outer command line. `export` then forwards it to
+# every shell, including scripts/image which tests `= "yes"` exact.
+override OFFICIAL := $(if $(filter y yes Y YES 1,$(OFFICIAL)),yes,)
 export OFFICIAL
 
 all: world
