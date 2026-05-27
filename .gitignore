@@ -93,6 +93,7 @@ projects/ArchR/devices/SM8550/
 projects/ArchR/devices/SM8650/
 
 # Non-R36S device documentation
+bench-results/*
 documentation/PER_DEVICE_DOCUMENTATION/H700/
 documentation/PER_DEVICE_DOCUMENTATION/RK3399/
 documentation/PER_DEVICE_DOCUMENTATION/RK3566/
