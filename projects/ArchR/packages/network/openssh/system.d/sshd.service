@@ -3,11 +3,11 @@ Description=OpenSSH server daemon
 After=network.target
 RequiresMountsFor=/storage
 ConditionKernelCommandLine=|ssh
-ConditionPathExists=|/storage/.cache/services/sshd.conf
+ConditionPathExists=|/var/lib/archr/services/sshd.conf
 
 [Service]
 Restart=on-failure
-EnvironmentFile=-/storage/.cache/services/sshd.conf
+EnvironmentFile=-/var/lib/archr/services/sshd.conf
 ExecStartPre=-/bin/sh -c 'mkdir -p /var/lib/sshd'
 ExecStartPre=/usr/bin/ssh-keygen -A
 ExecStartPre=-/bin/sh -c 'chmod 600 /var/lib/sshd/ssh_host_*'

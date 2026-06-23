@@ -7,10 +7,10 @@
 
 tocon "Setting root password..."
 
-if [ ! -d "/storage/.cache/samba" ]
+if [ ! -d "/var/lib/samba/private" ]
 then
-  mkdir -p /storage/.cache/samba
-  touch /storage/.cache/samba/smbpasswd
+  mkdir -p /var/lib/samba/private
+  touch /var/lib/samba/private/smbpasswd
 fi
 
 ROOTPASS=$(get_setting root.password)

@@ -62,6 +62,20 @@ EOF
   # pre-boot bootloader scripts know about and cannot move; userland
   # tooling reads/writes through the FHS bridge.
   ln -sf /storage/.update                  ${INSTALL}/var/cache/archr/update
+
+  # State directories for runtime data the system writes back to the
+  # storage overlay. Same bridge pattern, just under /var/lib instead
+  # of /var/cache.
+  mkdir -p ${INSTALL}/var/lib/archr
+  ln -sf /storage/.cache/services          ${INSTALL}/var/lib/archr/services
+  # samba passdb at the Arch-standard /var/lib/samba/private path.
+  mkdir -p ${INSTALL}/var/lib/samba
+  ln -sf /storage/.cache/samba             ${INSTALL}/var/lib/samba/private
+  # tailscale daemon state (Arch convention).
+  ln -sf /storage/.cache/tailscale         ${INSTALL}/var/lib/tailscale
+  # cron spool (Arch convention; busybox crond walks the subtree).
+  mkdir -p ${INSTALL}/var/spool
+  ln -sf /storage/.cache/cron              ${INSTALL}/var/spool/cron
 }
 
 post_install() {

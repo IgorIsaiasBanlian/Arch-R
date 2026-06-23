@@ -3,7 +3,7 @@ Description=Avahi Daemon
 After=network.target avahi-defaults.service
 RequiresMountsFor=/storage
 Requires=avahi-defaults.service
-ConditionPathExists=/storage/.cache/services/avahi.conf
+ConditionPathExists=/var/lib/archr/services/avahi.conf
 
 [Service]
 Restart=on-failure

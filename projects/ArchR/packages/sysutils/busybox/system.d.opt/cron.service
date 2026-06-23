@@ -4,10 +4,10 @@ After=cron-defaults.service
 RequiresMountsFor=/storage
 Requires=cron-defaults.service
 
-ConditionPathExists=/storage/.cache/services/crond.conf
+ConditionPathExists=/var/lib/archr/services/crond.conf
 
 [Service]
-ExecStartPre=/bin/mkdir -p /storage/.cache/cron/crontabs
+ExecStartPre=/bin/mkdir -p /var/spool/cron/crontabs
 ExecStart=/sbin/crond -f -S
 KillMode=process
 TimeoutStopSec=1s

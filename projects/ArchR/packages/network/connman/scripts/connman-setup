@@ -4,9 +4,9 @@
 # Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
 
 # creating initial settings file
-  if [ ! -f /storage/.cache/connman/settings ]; then
-    mkdir -p /storage/.cache/connman
-      cp /usr/share/connman/settings /storage/.cache/connman
+  if [ ! -f /var/lib/connman/settings ]; then
+    mkdir -p /var/lib/connman
+      cp /usr/share/connman/settings /var/lib/connman
   fi
 
 # set variable for connman main.conf location

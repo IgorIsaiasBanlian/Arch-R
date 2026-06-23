@@ -12,15 +12,15 @@ do
   source ${SERVICE}
 
 
-  if [ ! -d "/storage/.cache/services" ]
+  if [ ! -d "/var/lib/archr/services" ]
   then
-    mkdir -p "/storage/.cache/services"
+    mkdir -p "/var/lib/archr/services"
   fi
 
   if [ -n "${CONF}" ] && \
-     [ -e "/storage/.cache/services/${CONF}" ]
+     [ -e "/var/lib/archr/services/${CONF}" ]
   then
-    rm -f "/storage/.cache/services/${CONF}"
+    rm -f "/var/lib/archr/services/${CONF}"
   fi
 
   statemgr() {
@@ -32,7 +32,7 @@ do
 
   case "$STATE" in
     "1")
-      touch "/storage/.cache/services/${CONF}"
+      touch "/var/lib/archr/services/${CONF}"
       statemgr start
     ;;
     *)

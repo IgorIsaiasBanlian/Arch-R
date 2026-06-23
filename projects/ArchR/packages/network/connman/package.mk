@@ -52,8 +52,8 @@ else
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-wireguard"
 fi
 
-PKG_MAKE_OPTS_TARGET="storagedir=/storage/.cache/connman \
-                      vpn_storagedir=/storage/.config/wireguard \
+PKG_MAKE_OPTS_TARGET="storagedir=/var/lib/connman \
+                      vpn_storagedir=/etc/wireguard \
                       statedir=/run/connman"
 
 post_makeinstall_target() {
@@ -81,6 +81,13 @@ post_makeinstall_target() {
 
   mkdir -p ${INSTALL}/usr/share/connman/
     cp ${PKG_DIR}/config/settings ${INSTALL}/usr/share/connman/
+
+  # FHS bridges: connman storagedir baked at /var/lib/connman, wireguard
+  # vpn_storagedir at /etc/wireguard (both Arch conventions). Bridges
+  # land at the storage overlay so connections and tunnels persist.
+  mkdir -p ${INSTALL}/var/lib
+  ln -sf /storage/.cache/connman ${INSTALL}/var/lib/connman
+  ln -sf /storage/.config/wireguard ${INSTALL}/etc/wireguard
 }
 
 post_install() {

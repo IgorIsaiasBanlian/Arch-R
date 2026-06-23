@@ -3,7 +3,7 @@ Description=Samba NMB Daemon
 Wants=network-online.target samba-config.service
 After=network-online.target samba-config.service
 RequiresMountsFor=/storage
-ConditionPathExists=!/storage/.cache/services/samba.disabled
+ConditionPathExists=!/var/lib/archr/services/samba.disabled
 ConditionPathExists=/run/samba/smb.conf
 
 [Service]

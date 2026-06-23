@@ -23,7 +23,7 @@ DEFAULT=(
     /storage/.config/fancontrol.conf
     /storage/.config/backuptool.conf
     /var/lib/bluetooth/*
-    /storage/.cache/connman*
+    /var/lib/connman*
     /storage/.config/system/configs/system.cfg
     /storage/.config/ppsspp/*
     /storage/.config/retroarch/*

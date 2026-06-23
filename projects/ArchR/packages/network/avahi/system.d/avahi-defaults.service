@@ -3,10 +3,10 @@ Description=Avahi defaults
 After=local-fs.target
 RequiresMountsFor=/storage
 
-ConditionPathExists=!/storage/.cache/services/avahi.conf
-ConditionPathExists=!/storage/.cache/services/avahi.disabled
+ConditionPathExists=!/var/lib/archr/services/avahi.conf
+ConditionPathExists=!/var/lib/archr/services/avahi.disabled
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c 'cp /usr/share/services/avahi.conf /storage/.cache/services/'
+ExecStart=/bin/sh -c 'cp /usr/share/services/avahi.conf /var/lib/archr/services/'
 RemainAfterExit=yes

@@ -3,10 +3,10 @@ Description=Cron defaults
 After=local-fs.target
 RequiresMountsFor=/storage
 
-ConditionPathExists=!/storage/.cache/services/crond.conf
-ConditionPathExists=!/storage/.cache/services/crond.disabled
+ConditionPathExists=!/var/lib/archr/services/crond.conf
+ConditionPathExists=!/var/lib/archr/services/crond.disabled
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c 'cp /usr/share/services/crond.conf /storage/.cache/services/'
+ExecStart=/bin/sh -c 'cp /usr/share/services/crond.conf /var/lib/archr/services/'
 RemainAfterExit=yes
