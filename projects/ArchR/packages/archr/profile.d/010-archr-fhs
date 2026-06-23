@@ -36,8 +36,8 @@ export ARCHR_CACHE="${ARCHR_CACHE:-/storage/.cache}"
 # Class D: persistent state/data (FHS surface bridged to /storage/.local/share)
 export ARCHR_DATA="${ARCHR_DATA:-/var/lib/archr/data}"
 
-# Class E: user games library and adjacent media (-> /var/lib/archr/games eventually)
-export ARCHR_GAMES="${ARCHR_GAMES:-/storage/roms}"
+# Class E: user games library (FHS surface bridged to /storage/roms)
+export ARCHR_GAMES="${ARCHR_GAMES:-/var/lib/archr/games}"
 
 # Class F: log files (-> /var/log/archr eventually)
 export ARCHR_LOG="${ARCHR_LOG:-/storage/.cache/log}"

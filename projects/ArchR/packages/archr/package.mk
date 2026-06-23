@@ -87,6 +87,15 @@ EOF
   ln -sf /storage/.config                  ${INSTALL}/var/lib/archr/config
   mkdir -p ${INSTALL}/var/lib/archr
   ln -sf /storage/.local/share             ${INSTALL}/var/lib/archr/data
+
+  # Class E umbrella bridge. Games library has the largest surface in
+  # the codebase (117 files in projects/ArchR reference /storage/roms),
+  # same pattern as Class B: the rw overlay address stays /storage/roms,
+  # the Arch-friendly address /var/lib/archr/games is a symlink so
+  # ARCHR_GAMES and inspection tools see the FHS path. Per-script
+  # refactors can happen organically.
+  ln -sf /storage/roms                     ${INSTALL}/var/lib/archr/games
+  ln -sf /storage/backup                   ${INSTALL}/var/lib/archr/backup
 }
 
 post_install() {

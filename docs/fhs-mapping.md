@@ -173,23 +173,32 @@ Resultado: do ponto de vista de qualquer ferramenta inspecionando o sistema roda
 
 **Per-emulator data dirs (`/storage/.local/share/<emu>`):** mesma estratégia. Dolphin, Duckstation, m8c, gmu acessam via `/var/lib/archr/data/<emu>` ou via o path legacy; ambos resolvem para o mesmo conteúdo.
 
-### Fase 6 — Class E: dados do usuário (70 paths)
+### Fase 6 — Class E: dados do usuário
 
-**Objetivo:** mover ROMs, saves, screenshots, recordings. **Fase de maior risco.**
+**Status: concluída (2026-06-23) via bridge umbrella.** Mesma decisão de F5, ainda mais consequente aqui: `/storage/roms` aparece em **117 arquivos** de `projects/ArchR/` (scripts de emulador, quirks por device, setsettings.sh, runemu.sh, smb.conf shares). Refatorar 117 arquivos numa única release seria diff massivo e ainda mais perigoso porque o substrato é onde a biblioteca de jogos do usuário reside.
 
-- `/storage/roms` → `/var/lib/archr/games` (rom library)
-- `/storage/screenshots` → `/var/lib/archr/games/screenshots`
-- `/storage/recordings` → `/var/lib/archr/games/recordings`
-- `/storage/downloads` → `/var/lib/archr/downloads`
-- `/storage/music`, `/storage/pictures`, `/storage/videos`, `/storage/tvshows` → `/var/lib/archr/media/<x>`
-- `/storage/.ssh` → `/root/.ssh` (FHS-correto pra root)
-- `/storage/backup` → `/var/lib/archr/backup`
+**Decisão final:**
+1. `archr` meta-package instala dois bridges:
+   - `/var/lib/archr/games` → `/storage/roms`
+   - `/var/lib/archr/backup` → `/storage/backup`
+2. `ARCHR_GAMES` em `/etc/profile.d/010-archr-fhs` flipa para `/var/lib/archr/games`.
+3. `archr(7)` ENVIRONMENT atualizado.
 
-**Pré-requisitos antes desta fase:**
-1. Todas as fases anteriores em produção há pelo menos uma release.
-2. Migration script tem validação por checksum de cada arquivo migrado.
-3. Fallback de rollback documentado.
-4. Aviso ao usuário no upgrade ("vai mover ROMs, tempo estimado X").
+**Análise dos demais paths Class E:**
+
+| Path | Refs em projects/ArchR | Decisão |
+|------|------------------------|---------|
+| `/storage/roms` | 117 | umbrella bridge |
+| `/storage/backup` | 1 (tmpfiles) | umbrella bridge |
+| `/storage/screenshots` | 0 | herança LibreELEC top-level; sem refs no ArchR runtime |
+| `/storage/recordings` | 0 | mesmo |
+| `/storage/downloads` | 0 | mesmo |
+| `/storage/music`, `/storage/pictures`, `/storage/videos`, `/storage/tvshows` | 0 | mesmo (Kodi media dirs, não usado) |
+| `/storage/.ssh` | 4 | **no-op: já é FHS-correto** |
+
+**Sobre `/storage/.ssh`:** o `add_user root` em `busybox/package.mk` define `$HOME=/storage` para o usuário root. Isso significa que `/storage/.ssh` literalmente é `$HOME/.ssh` para o único usuário do sistema, que é FHS-correto por definição. Mudar para `/root/.ssh` exigiria primeiro mudar o `$HOME` de root para `/root`, o que afeta `cd ~`, scripts que assumem cwd no login, etc — escopo de mudança de modelo de usuário, fora de F6.
+
+**Sem migration script de dados.** O substrato (`/storage/roms`) não muda fisicamente: o bridge symlink resolve para o mesmo dir. ROMs e saves do usuário não são tocados, sem risco.
 
 ### Fase 7 — Class Z: casos especiais e limpeza final
 
@@ -232,4 +241,5 @@ Migration scripts ficam em `projects/ArchR/packages/archr/sources/post-update.d/
 - [x] Fase 3 concluída (2026-06-23): logs reaproveitam `var-log.mount` (/var/log = /storage/.cache/log), update bridged via `/var/cache/archr/update`, overlayfs workdirs e bootloader handshake permanecem no backing path por constraint.
 - [x] Fase 4 concluída (2026-06-23): 9 state dirs (ssh, iwd, bluetooth, services, samba, connman, wireguard, tailscale, cron) movidos para paths Arch-convencionais via bridge symlinks. pacman db/cache e rfkill já eram bridges. `.local/share` realocado para F5. Detalhes na Fase 4.
 - [x] Fase 5 concluída (2026-06-23): umbrella bridges `/var/lib/archr/{config,data}` instalados pelo `archr` meta-package, vars `ARCHR_CONFIG` / `ARCHR_DATA` flipadas para os paths Arch. Refs hardcoded /storage/.config/<emu> nos scripts ficam funcionais via compat. Detalhes na Fase 5.
-- [ ] Fase 6..7 — não iniciadas.
+- [x] Fase 6 concluída (2026-06-23): umbrella bridges `/var/lib/archr/{games,backup}` instalados, var `ARCHR_GAMES` flipada. /storage/.ssh marcado como no-op (é literalmente $HOME/.ssh do root). Detalhes na Fase 6.
+- [ ] Fase 7 — não iniciada.

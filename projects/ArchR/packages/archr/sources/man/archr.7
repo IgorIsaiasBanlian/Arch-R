@@ -102,10 +102,12 @@ a symlink into
 on the rw overlay.
 .TP
 .B ARCHR_GAMES
-Games library root (ROMs, saves, screenshots, recordings). Currently
-.IR /storage/roms ;
-target
-.IR /var/lib/archr/games .
+Games library root (ROMs, saves, screenshots, recordings). Resolves
+to
+.IR /var/lib/archr/games ,
+a symlink into
+.IR /storage/roms
+on the rw overlay.
 .TP
 .B ARCHR_LOG
 Log files. Currently
