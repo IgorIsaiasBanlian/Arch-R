@@ -41,7 +41,8 @@ case ${DEVICE} in
         PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
         ;;
       *)
-        PKG_VERSION="6.12.79"
+        PKG_VERSION="6.12.94"
+        PKG_SHA256="e998a232b9418db3301cb58468e291a4f41d6ab8306029b30d991f56251dc8d2"
         PKG_PATCH_DIRS+=" 6.12-LTS"
         PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
         ;;
