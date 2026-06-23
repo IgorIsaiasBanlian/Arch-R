@@ -172,6 +172,6 @@ Migration scripts ficam em `projects/ArchR/packages/archr/sources/post-update.d/
 
 - [x] Auditoria de 297 paths concluída (2026-06-23).
 - [x] Mapeamento por classe definido.
-- [ ] Fase 0 (vocabulário) — em andamento.
+- [x] Fase 0 concluída (2026-06-23): `010-archr-fhs` em `/etc/profile.d`, archr(7) com seção ENVIRONMENT, vars apontando para `/storage/...`. Risco zero.
 - [ ] Fase 1 — não iniciada.
 - [ ] Fase 2..7 — não iniciadas.

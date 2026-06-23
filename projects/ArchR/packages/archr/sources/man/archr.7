@@ -62,6 +62,60 @@ Send anonymized telemetry when the user opts in.
 .TP
 .B archr-retroachievements-info
 Display RetroAchievements account state and recent unlocks.
+.SH ENVIRONMENT
+ArchR scripts read filesystem paths through the
+.B ARCHR_*
+family of variables, exported by
+.IR /etc/profile.d/010-archr-fhs .
+This vocabulary is stable; the underlying paths migrate to FHS locations
+across releases (see
+.IR docs/fhs-mapping.md
+in the source tree). Callers should never hardcode
+.IR /storage/.config
+or its siblings; use the variable instead.
+.TP
+.B ARCHR_ETC
+System configuration. Currently
+.IR /storage/.config ;
+target
+.IR /etc/archr .
+.TP
+.B ARCHR_CONFIG
+User and application configuration (emulators, EmulationStation,
+PortMaster). Currently
+.IR /storage/.config ;
+target
+.IR /var/lib/archr/config .
+.TP
+.B ARCHR_CACHE
+Regenerable cache (shader cache, fontconfig, service state). Currently
+.IR /storage/.cache ;
+target
+.IR /var/cache/archr .
+.TP
+.B ARCHR_DATA
+Persistent state and data. Currently
+.IR /storage/.local/share ;
+target
+.IR /var/lib/archr/data .
+.TP
+.B ARCHR_GAMES
+Games library root (ROMs, saves, screenshots, recordings). Currently
+.IR /storage/roms ;
+target
+.IR /var/lib/archr/games .
+.TP
+.B ARCHR_LOG
+Log files. Currently
+.IR /storage/.cache/log ;
+target
+.IR /var/log/archr .
+.TP
+.B ARCHR_TMP
+Ephemeral temp. Currently
+.IR /storage/.tmp ;
+target
+.IR /var/tmp/archr .
 .SH FILES
 .TP
 .I /etc/os-release

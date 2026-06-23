@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026-present ArchR (https://github.com/archr-linux)
+#
+# ArchR Filesystem Hierarchy vocabulary
+# -------------------------------------
+# Phase 0 of the FHS migration (Arch-ification 2.2).
+#
+# These variables establish the Arch-friendly vocabulary for paths that
+# ArchR scripts use. During this phase they point to the legacy
+# LibreELEC-style /storage layout, so nothing changes at runtime.
+# Subsequent phases migrate each path class to its FHS destination by
+# flipping the right-hand side of the assignments here, while the
+# variable name stays stable for callers.
+#
+# See docs/fhs-mapping.md in the source tree for the full plan.
+#
+# Convention for downstream scripts: always read paths via these
+# variables, never hardcode "/storage/.config" again. Example:
+#
+#   config_dir="${ARCHR_CONFIG}/drastic"
+#   instead of
+#   config_dir="/storage/.config/drastic"
+#
+# When a script is migrated to use ${ARCHR_X}, the next phase can move
+# the underlying data without touching that script.
+
+# Class A: system configuration (-> /etc/archr eventually)
+export ARCHR_ETC="${ARCHR_ETC:-/storage/.config}"
+
+# Class B: user/app configuration (-> /var/lib/archr/config eventually)
+export ARCHR_CONFIG="${ARCHR_CONFIG:-/storage/.config}"
+
+# Class C: regenerable cache (-> /var/cache/archr eventually)
+export ARCHR_CACHE="${ARCHR_CACHE:-/storage/.cache}"
+
+# Class D: persistent state/data (-> /var/lib/archr/data eventually)
+export ARCHR_DATA="${ARCHR_DATA:-/storage/.local/share}"
+
+# Class E: user games library and adjacent media (-> /var/lib/archr/games eventually)
+export ARCHR_GAMES="${ARCHR_GAMES:-/storage/roms}"
+
+# Class F: log files (-> /var/log/archr eventually)
+export ARCHR_LOG="${ARCHR_LOG:-/storage/.cache/log}"
+
+# Class G: ephemeral temp (-> /var/tmp/archr eventually)
+export ARCHR_TMP="${ARCHR_TMP:-/storage/.tmp}"
