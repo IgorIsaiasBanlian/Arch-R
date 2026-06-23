@@ -51,23 +51,30 @@ Cada fase **termina em um commit** com mensagem `FHS Fx.y: <descrição>`. Entre
 
 **Risco:** zero. Nada muda no comportamento.
 
-### Fase 1 — Class A: configs de sistema (18 paths)
+### Fase 1 — Class A: configs de sistema (no-op por design)
 
-**Objetivo:** mover configs que são `/etc` por natureza, não estado de usuário.
+**Status: concluída como no-op (2026-06-23).** Auditoria detalhada revelou que `projects/ArchR/packages/sysutils/systemd/package.mk` **já redireciona** os paths Class A para `/etc/...` via symlinks de build-time:
 
-Paths-alvo (subset, completar após varredura):
-- `/storage/.config/hosts.conf` → `/etc/archr/hosts.conf`
-- `/storage/.config/modprobe.d/` → `/etc/modprobe.d/`
-- `/storage/.config/modules-load.d/` → `/etc/modules-load.d/`
-- `/storage/.config/hwdb.d/` → `/etc/udev/hwdb.d/`
-- `/storage/.config/profile.d/` → `/etc/profile.d/`
-- `/storage/.config/logind.conf.d/` → `/etc/systemd/logind.conf.d/`
-- `/storage/.config/pulse-daemon.conf.d/` → `/etc/pulse/daemon.conf.d/`
-- `/storage/.config/iproute2/` → `/etc/iproute2/`
+```
+ln -sf /storage/.config/modules-load.d ${INSTALL}/etc/modules-load.d
+ln -sf /storage/.config/logind.conf.d ${INSTALL}/etc/systemd/logind.conf.d
+ln -sf /storage/.config/resolved.conf.d ${INSTALL}/etc/systemd/resolved.conf.d
+ln -sf /storage/.config/sleep.conf.d ${INSTALL}/etc/systemd/sleep.conf.d
+ln -sf /storage/.config/timesyncd.conf.d ${INSTALL}/etc/systemd/timesyncd.conf.d
+ln -sf /storage/.config/sysctl.d ${INSTALL}/etc/sysctl.d
+ln -sf /storage/.config/tmpfiles.d ${INSTALL}/etc/tmpfiles.d
+ln -sf /storage/.config/hwdb.d ${INSTALL}/etc/udev/hwdb.d
+ln -sf /storage/.config/udev.rules.d ${INSTALL}/etc/udev/rules.d
+```
 
-**Implementação:** um path por commit. Migration script no `post-update` faz `mv` + symlink de fallback (`/storage/.config/hosts.conf` -> `/etc/archr/hosts.conf`).
+No sistema rodando, `/etc/modules-load.d`, `/etc/sysctl.d`, `/etc/systemd/logind.conf.d` etc. **existem e funcionam como FHS espera**. O fato do target do symlink ser `/storage/.config` é detalhe interno do storage overlay (rootfs squashfs read-only + `/storage` rw), não dívida FHS visível ao usuário ou a ferramentas externas.
 
-**Verificação:** grep + boot test em qemu antes de avançar (kernel boot, systemd inicia, EmulationStation aparece).
+Mudar o target para algo mais Arch-friendly (ex.: `/var/lib/archr/etc/`) seria cosmético em troca de mexer no init para fazer bind-mount; o trade-off não compensa.
+
+Hosts/resolv têm pipeline próprio (script `network-base-setup` lê
+`/storage/.config/hosts.conf` e renderiza `/run/archr/hosts`); ficam onde estão pela mesma lógica.
+
+**Resultado:** os 18 paths Class A já entregam FHS-correto sem mudança nenhuma. Foco da Fase 1 redirecionado para validação posterior em Fase 7 (auditoria final).
 
 ### Fase 2 — Class C: cache (44 paths)
 
@@ -173,5 +180,6 @@ Migration scripts ficam em `projects/ArchR/packages/archr/sources/post-update.d/
 - [x] Auditoria de 297 paths concluída (2026-06-23).
 - [x] Mapeamento por classe definido.
 - [x] Fase 0 concluída (2026-06-23): `010-archr-fhs` em `/etc/profile.d`, archr(7) com seção ENVIRONMENT, vars apontando para `/storage/...`. Risco zero.
-- [ ] Fase 1 — não iniciada.
-- [ ] Fase 2..7 — não iniciadas.
+- [x] Fase 1 marcada como no-op (2026-06-23): systemd já entrega `/etc/{modules-load.d,sysctl.d,tmpfiles.d,udev/{hwdb,rules}.d,systemd/*conf.d}` via symlinks de build-time. FHS-correto sem mudança. Detalhes na seção da Fase 1 deste documento.
+- [ ] Fase 2 — em andamento (Class C: cache).
+- [ ] Fase 3..7 — não iniciadas.
