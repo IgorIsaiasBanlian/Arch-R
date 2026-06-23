@@ -97,9 +97,12 @@ Identidade Arch vem dos 7 itens desta seção (pacman, PKGBUILD, FHS, rolling, K
 
 ### 2.2. Aproximar do FHS
 
-- [ ] **Auditoria das 189 refs a `/storage/`** M. Categorizar: config de usuário, state runtime, save games, cache. Mapear cada categoria para o lugar FHS correto (`/home/<user>/.config`, `/var/lib`, `/var/cache`).
-- [ ] **Symlinks de compatibilidade** S. Para cada migração, manter symlink `/storage/.config/<x>` → caminho FHS por uma release, com warning no log, e remover depois.
-- [ ] **Documentar o "porquê /storage"** S. Antes de mover, escrever página explicando que era herança LibreELEC overlay e o caminho atual. Vai para `docs/arch-migration.md`.
+- [x] **Auditoria das 297 paths únicos** completada (2026-06-23). Classificadas em A-G + Z, registradas em `docs/fhs-mapping.md`.
+- [x] **22 bridge symlinks instalados** (17 no `archr` meta-package + 5 modulares em openssh, iwd, bluez, connman, fontconfig). Surface FHS-Arch, substrato continua em `/storage` rw overlay (mesmo padrão do SteamOS e dos symlinks que o systemd já fazia para `/etc/*`).
+- [x] **Sete variáveis `ARCHR_*`** em `/etc/profile.d/010-archr-fhs` exportam os paths Arch (`ARCHR_CONFIG=/var/lib/archr/config`, `ARCHR_GAMES=/var/lib/archr/games`, etc.).
+- [x] **archr(7) ENVIRONMENT** documenta cada variável e seu substrato.
+- [x] Migração concluída em **7 fases** (F0..F7), todas commitadas em `new-arch`. Ver `docs/fhs-mapping.md`.
+- [ ] **Refatoração orgânica das 1625 refs hardcoded `/storage/...`** que sobrevivem em scripts de emulador, quirks por device, automount, factoryreset, post-update. Não-bloqueante: continua tudo funcionando via compat. Vai virar PRs incrementais quando algum dos scripts for tocado por outro motivo.
 
 ### 2.3. Aceitar PKGBUILD da comunidade
 
