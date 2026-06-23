@@ -14,7 +14,7 @@
 ###     wifictl command [ssid] [psk]
 ###
 
-IWD_AP_CFG_DIR="/storage/.cache/iwd/ap"
+IWD_AP_CFG_DIR="/var/lib/iwd/ap"
 WIFI_TYPE=$(get_setting wifi.adhoc.enabled)
 NETWORK_ADDRESS="192.168.80"
 ADHOC_CLIENT_ID=$(get_setting wifi.adhoc.id)
@@ -67,7 +67,7 @@ connect_wifi() {
   sleep 1
 
   # Create iwd network profile for persistent connection
-  IWD_DIR="/storage/.cache/iwd"
+  IWD_DIR="/var/lib/iwd"
   mkdir -p "${IWD_DIR}"
   if [ -n "${PSK}" ]; then
     printf '[Security]\nPassphrase=%s\n' "${PSK}" > "${IWD_DIR}/${SSID}.psk"

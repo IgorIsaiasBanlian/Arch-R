@@ -60,7 +60,7 @@ echo "Apply dev wifi config if available..." >>${LOG}
 if [ -d /usr/config/iwd ]
 then
   tocon "Update developer wifi config..."
-  cp /usr/config/iwd/* /storage/.cache/iwd/
+  cp /usr/config/iwd/* /var/lib/iwd/
 fi
 
 ### Sync rsync configs

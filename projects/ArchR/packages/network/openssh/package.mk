@@ -28,7 +28,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_header_rpc_types_h=no \
                            --disable-pututline \
                            --disable-pututxline \
                            --disable-etc-default-login \
-                           --with-keydir=/storage/.cache/ssh \
+                           --with-keydir=/var/lib/sshd \
                            --without-pam"
 
 pre_configure_target() {
@@ -55,4 +55,11 @@ post_makeinstall_target() {
 
 post_install() {
   enable_service sshd.service
+
+  # FHS bridge for host keys: --with-keydir is baked at configure time
+  # to /var/lib/sshd. Symlink it into /storage/.cache/ssh (rw overlay)
+  # so the keys persist across reboots. The backing path is still
+  # created by tmpfiles z_04_openssh.conf.
+  mkdir -p ${INSTALL}/var/lib
+  ln -sf /storage/.cache/ssh ${INSTALL}/var/lib/sshd
 }

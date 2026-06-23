@@ -19,4 +19,10 @@ post_makeinstall_target() {
 
   mkdir -p ${INSTALL}/usr/bin
     cp -P ${PKG_DIR}/scripts/iwd_get-networks ${INSTALL}/usr/bin
+
+  # FHS bridge: /var/lib/iwd is the Arch-standard state dir. tmpfiles
+  # z_03_iwd.conf creates the backing /storage/.cache/iwd so the
+  # symlinked target is writable on first boot.
+  mkdir -p ${INSTALL}/var/lib
+  ln -sf /storage/.cache/iwd ${INSTALL}/var/lib/iwd
 }

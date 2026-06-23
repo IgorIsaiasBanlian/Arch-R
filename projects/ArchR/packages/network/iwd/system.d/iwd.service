@@ -7,7 +7,7 @@ Before=network.target
 Wants=network.target
 
 [Service]
-Environment=STATE_DIRECTORY=/storage/.cache/iwd
+Environment=STATE_DIRECTORY=/var/lib/iwd
 Type=dbus
 BusName=net.connman.iwd
 ExecStart=/usr/lib/iwd
