@@ -45,7 +45,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-dependency-tracking \
                            --enable-hid \
                            --with-gnu-ld \
                            ${BLUEZ_CONFIG} \
-                           storagedir=/storage/.cache/bluetooth"
+                           storagedir=/var/lib/bluetooth"
 
 pre_configure_target() {
 # bluez fails to build in subdirs
@@ -80,6 +80,13 @@ post_makeinstall_target() {
 
   # bluez looks in /etc/firmware/
     ln -sf /usr/lib/firmware ${INSTALL}/etc/firmware
+
+  # FHS bridge: bluez storagedir is baked at configure to /var/lib/bluetooth
+  # (Arch convention). tmpfiles z_05_bluez.conf creates the backing dir
+  # /storage/.cache/bluetooth so the symlink resolves on first boot and
+  # paired devices persist across reboots.
+  mkdir -p ${INSTALL}/var/lib
+  ln -sf /storage/.cache/bluetooth ${INSTALL}/var/lib/bluetooth
 
   # libbluetooth required for bluez-alsa
   #  sed -i 's/-lbluetooth//g' ${PKG_BUILD}/lib/bluez.pc

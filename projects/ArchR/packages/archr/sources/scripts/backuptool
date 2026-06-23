@@ -22,7 +22,7 @@ mkdir -p ${BACKUPFOLDER}
 DEFAULT=(
     /storage/.config/fancontrol.conf
     /storage/.config/backuptool.conf
-    /storage/.cache/bluetooth/*
+    /var/lib/bluetooth/*
     /storage/.cache/connman*
     /storage/.config/system/configs/system.cfg
     /storage/.config/ppsspp/*

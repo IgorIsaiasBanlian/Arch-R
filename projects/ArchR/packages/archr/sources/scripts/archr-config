@@ -274,7 +274,7 @@ fi
 
 if [[ "$command" == "forgetBT" ]]; then
    systemctl stop bluetooth bluetooth-agent
-   rm -rf /storage/.cache/bluetooth/* /storage/roms/backups/bluetooth.tar
+   rm -rf /var/lib/bluetooth/* /storage/roms/backups/bluetooth.tar
    systemctl start bluetooth bluetooth-agent
    exit 0
 fi
