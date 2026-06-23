@@ -1,0 +1,104 @@
+.TH ARCHR 7 "2026-06-23" "ArchR" "ArchR Manual"
+.SH NAME
+archr \- overview of the ArchR distribution
+.SH DESCRIPTION
+.B ArchR
+is a Linux distribution targeted at the Rockchip RK3326 handheld console family
+(R36S, K36, MagicX XU10, Soysauce/Y3506 and clones).
+It boots from a microSD card, exposes EmulationStation as the default front end,
+and ships a curated catalogue of emulators, RetroAchievements integration,
+PortMaster compatibility and panel auto-detection via DTBO overlays.
+.PP
+ArchR follows the Arch Linux family conventions (
+.BR ID_LIKE =arch
+in
+.IR /etc/os-release ", "
+empty sentinel file at
+.IR /etc/archr-release )
+while keeping the LibreELEC-inherited boot model: read-only squashfs rootfs
+plus a read-write overlay at
+.IR /storage .
+This combination is shared with SteamOS and chosen for its resilience to
+power-loss during gameplay and for atomic system updates.
+.SH COMMANDS
+The following helpers are installed under
+.IR /usr/bin
+and are the public interface of the distro:
+.TP
+.B archr-update
+Check for and apply an OS update. Pulls a signed image from
+.IR https://update.arch-r.io ;
+during a future release, this will become a wrapper around
+.BR pacman -Syu .
+.TP
+.B archr-config
+Read or write a runtime setting persisted in
+.IR /storage/.config/system/configs/system.cfg .
+Used by every emulator launcher and by EmulationStation.
+.TP
+.B archr-settings
+Top-level settings UI dispatcher consumed by EmulationStation menus.
+.TP
+.B archr-systems
+List supported emulator systems and their associated cores.
+.TP
+.B archr-scraper
+Scrape metadata and box art for the games library.
+.TP
+.B archr-info
+Show device, firmware, kernel, panel overlay and GPU driver in use.
+.TP
+.B archr-keyboard
+Toggle the on-screen virtual keyboard.
+.TP
+.B archr-bluetooth ", " archr-bluetooth-agent
+Manage Bluetooth devices and the agent that pairs them headlessly.
+.TP
+.B archr-memory-manager
+Configure zram, swappiness and the OOM behaviour. Started as a service at boot.
+.TP
+.B archr-report-stats
+Send anonymized telemetry when the user opts in.
+.TP
+.B archr-retroachievements-info
+Display RetroAchievements account state and recent unlocks.
+.SH FILES
+.TP
+.I /etc/os-release
+Distribution identity (NAME, ID, ID_LIKE, VERSION_ID).
+.TP
+.I /etc/archr-release
+Empty sentinel file. Detected by third-party tools to recognize ArchR as Arch
+family. Equivalent to
+.IR /etc/arch-release
+on Arch Linux.
+.TP
+.I /storage/.config
+User-writable configuration root for emulators, EmulationStation, system
+preferences and saved settings.
+.TP
+.I /storage/roms
+Default ROM library root, expected layout matches EmulationStation conventions.
+.TP
+.I /usr/share/bootloader
+Boot files installed by mkimage: kernel, DTB, overlay catalogue, update script.
+.TP
+.I /usr/lib/systemd/system/archr.target
+Default systemd target. Symlinks
+.IR default.target
+into it during build.
+.SH SEE ALSO
+.BR systemd (1),
+.BR pacman (8),
+.BR archr-update (1)
+.PP
+Full documentation:
+.UR https://arch-r.io
+.UE
+.PP
+Bug reports:
+.UR https://github.com/archr-linux/Arch-R/issues
+.UE
+.SH AUTHORS
+Douglas Teles and contributors. Built on the shoulders of LibreELEC, JELOS and
+ROCKNIX, all GPL-2.0-or-later.

@@ -163,20 +163,32 @@ echo "${TARGET_VERSION}" >${INSTALL}/etc/release
 # Create /etc/os-release
 cat <<EOF >${INSTALL}/etc/os-release
 NAME="${DISTRONAME}"
+PRETTY_NAME="${DISTRONAME} ${OS_VERSION}"
 ID="${OSNAME}"
+ID_LIKE="arch"
 VERSION_ID="${OS_VERSION}"
+VERSION="${OS_VERSION}"
+ANSI_COLOR="38;2;23;147;209"
+LOGO="archr"
+HOME_URL="${HOME_URL}"
+DOCUMENTATION_URL="${WIKI_URL:-${HOME_URL}}"
+SUPPORT_URL="${SUPPORT_URL:-https://github.com/${GIT_ORGANIZATION}/${GIT_REPO}/discussions}"
+BUG_REPORT_URL="${BUG_REPORT_URL:-https://github.com/${GIT_ORGANIZATION}/${GIT_REPO}/issues}"
 OS_NAME="${DISTRONAME}"
 OS_VERSION="${OS_VERSION}"
 OS_BUILD="${OS_BUILD}"
 GIT_ORGANIZATION="${GIT_ORGANIZATION}"
 GIT_REPO="${GIT_REPO}"
-HOME_URL="${HOME_URL}"
 BUILD_ID="${GIT_HASH}"
 BUILD_BRANCH="$(git branch --show-current)"
 BUILD_DATE="${BUILD_DATE}"
 HW_DEVICE="${DEVICE}"
 HW_ARCH="${ARCH}"
 EOF
+
+# Arch Linux family sentinel file (empty by convention, see /etc/arch-release on Arch)
+# Allows third-party tools that detect Arch via this file to recognize ArchR.
+: >${INSTALL}/etc/archr-release
 
 if [ -n "${HW_CPU}" ]
 then

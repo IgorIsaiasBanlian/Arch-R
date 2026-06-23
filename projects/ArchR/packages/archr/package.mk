@@ -71,6 +71,16 @@ EOF
   cp ${PKG_DIR}/sources/scripts/* ${INSTALL}/usr/bin
   chmod 0755 ${INSTALL}/usr/bin/* 2>/dev/null ||:
 
+  ### Install man pages
+  if [ -d "${PKG_DIR}/sources/man" ]; then
+    for page in ${PKG_DIR}/sources/man/*.[1-9]; do
+      [ -f "${page}" ] || continue
+      section=${page##*.}
+      mkdir -p ${INSTALL}/usr/share/man/man${section}
+      cp ${page} ${INSTALL}/usr/share/man/man${section}/
+    done
+  fi
+
   ### Fix and migrate to autostart package
   enable_service archr-autostart.service
 
