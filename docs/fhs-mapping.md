@@ -76,18 +76,30 @@ Hosts/resolv têm pipeline próprio (script `network-base-setup` lê
 
 **Resultado:** os 18 paths Class A já entregam FHS-correto sem mudança nenhuma. Foco da Fase 1 redirecionado para validação posterior em Fase 7 (auditoria final).
 
-### Fase 2 — Class C: cache (44 paths)
+### Fase 2 — Class C: cache regenerável
 
-**Objetivo:** mover caches regeneráveis. Se algo der errado, perde-se ms de regeneração, não dados.
+**Status: concluída (2026-06-23).** A classificação automática inicial colocou 44 paths em Class C, mas a inspeção revelou que a maioria é **state** (ssh, wireguard, bluetooth, iwd, services, cron, samba auth, tailscale), **logs** (log/journal, log/runemu-debug.log) ou já está redirecionada via symlink no upstream. Os paths que de fato são "cache regenerável" foram quatro:
 
-- `/storage/.cache/mesa_shader_cache` → `/var/cache/mesa` (já é convenção)
-- `/storage/.cache/fontconfig` → `/var/cache/fontconfig`
-- `/storage/.cache/services` → `/var/cache/archr/services`
-- `/storage/.cache/cores` → `/var/cache/archr/cores`
-- `/storage/.cache/kernel-overlays` → `/var/cache/archr/kernel-overlays`
-- demais → `/var/cache/archr/<x>`
+| Path | Destino FHS | Commit |
+|------|-------------|--------|
+| `/storage/.cache/mesa_shader_cache` | `/var/cache/mesa` | F2.1 |
+| `/storage/.cache/fontconfig` | `/var/cache/fontconfig` | F2.2 |
+| `/storage/.cache/kernel-overlays` | `/var/cache/archr/kernel-overlays` | F2.3 |
+| `/storage/.cache/locpath` | `/var/cache/archr/locpath` | F2.3 |
+| `/storage/.cache/fstrim.run` | `/var/cache/archr/fstrim.run` | F2.4 |
 
-**Verificação:** após boot, scraper + lançamento de jogo + replay do shader cache funcionando.
+**Padrão de implementação:** bridge symlink instalado pelo `archr` meta-package (`/var/cache/<x>` ou `/var/cache/archr/<x>` → `/storage/.cache/<x>`). Consumers leem do path Arch-friendly; writes atravessam pro overlay rw. Mesmo padrão dos symlinks que o systemd já cria para `/etc/*`.
+
+**Já no-op (redirected por outros pacotes upstream):**
+- `/storage/.cache/journald.conf.d` (symlink criado pelo systemd package)
+- `/storage/.cache/systemd-machine-id` (symlink criado pelo busybox package)
+- `/storage/.cache/system_timezone` (symlink criado pelo emulationstation package)
+
+**Realocados para outras fases:**
+- `log/`, `log/journal`, `log/runemu-debug.log`, `logfiles` → **Fase 3** (Class F)
+- `ssh`, `wireguard`, `samba`, `bluetooth`, `iwd`, `tailscale`, `connman`, `rfkill`, `services`, `cron`, `cores` → **Fase 4** (Class D, state)
+- `timezone` → **Fase 7** (referenciado em patch do systemd; mover requer ajuste no patch)
+- `debug.archr` → **Fase 7** (stamp file trivial)
 
 ### Fase 3 — Class F + G: logs e temp (13 paths)
 
@@ -181,5 +193,6 @@ Migration scripts ficam em `projects/ArchR/packages/archr/sources/post-update.d/
 - [x] Mapeamento por classe definido.
 - [x] Fase 0 concluída (2026-06-23): `010-archr-fhs` em `/etc/profile.d`, archr(7) com seção ENVIRONMENT, vars apontando para `/storage/...`. Risco zero.
 - [x] Fase 1 marcada como no-op (2026-06-23): systemd já entrega `/etc/{modules-load.d,sysctl.d,tmpfiles.d,udev/{hwdb,rules}.d,systemd/*conf.d}` via symlinks de build-time. FHS-correto sem mudança. Detalhes na seção da Fase 1 deste documento.
-- [ ] Fase 2 — em andamento (Class C: cache).
-- [ ] Fase 3..7 — não iniciadas.
+- [x] Fase 2 concluída (2026-06-23): 5 caches realmente regeneráveis migrados via bridge symlinks (mesa, fontconfig, kernel-overlays, locpath, fstrim.run). Paths state/log realocados para F3/F4. Detalhes na Fase 2.
+- [ ] Fase 3 — não iniciada (Class F+G: logs e temp).
+- [ ] Fase 4..7 — não iniciadas.

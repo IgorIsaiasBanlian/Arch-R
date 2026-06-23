@@ -54,6 +54,10 @@ EOF
   ln -sf /storage/.cache/mesa_shader_cache ${INSTALL}/var/cache/mesa
   ln -sf /storage/.cache/kernel-overlays   ${INSTALL}/var/cache/archr/kernel-overlays
   ln -sf /storage/.cache/locpath           ${INSTALL}/var/cache/archr/locpath
+  # fstrim.run is a stamp file, not a directory; the symlink resolves
+  # both `touch /var/cache/archr/fstrim.run` (writes through) and
+  # readers checking the stamp.
+  ln -sf /storage/.cache/fstrim.run        ${INSTALL}/var/cache/archr/fstrim.run
 }
 
 post_install() {

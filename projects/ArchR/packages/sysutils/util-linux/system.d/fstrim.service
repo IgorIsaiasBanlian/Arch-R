@@ -5,4 +5,4 @@ RequiresMountsFor=/storage
 [Service]
 Type=oneshot
 ExecStart=-/usr/sbin/fstrim --all --verbose --quiet-unsupported
-ExecStart=-/usr/bin/touch /storage/.cache/fstrim.run
+ExecStart=-/usr/bin/touch /var/cache/archr/fstrim.run
