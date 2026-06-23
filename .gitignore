@@ -175,4 +175,5 @@ packages/sysutils/open-vm-tools/
 docs/*
 !docs/improvements.md
 !docs/release-policy.md
+!docs/fhs-mapping.md
 bench-results/config/mipi-generator/__pycache__/
