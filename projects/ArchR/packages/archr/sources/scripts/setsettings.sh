@@ -348,7 +348,11 @@ EOF
 function configure_hotkeys() {
     log "Configure hotkeys..."
     local MY_CONTROLLER
-    if grep -q "js0" /proc/bus/input/devices; then
+
+    if grep -q "Sony Interactive Entertainment DualSense Wireless Controller" /proc/bus/input/devices; then
+        # InputPlumber virtual DS5
+        MY_CONTROLLER="Sony Interactive Entertainment DualSense Wireless Controller"
+    elif grep -q "js0" /proc/bus/input/devices; then
         MY_CONTROLLER=$(grep -b4 js0 /proc/bus/input/devices | awk 'BEGIN {FS="\""}; /Name/ {printf $2}')
     else
         MY_CONTROLLER=$(grep -b4 joypad /proc/bus/input/devices | awk 'BEGIN {FS="\""}; /Name/ {printf $2}')

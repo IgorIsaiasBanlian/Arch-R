@@ -17,6 +17,7 @@ HIRES3D=$(get_setting hires_3d "${PLATFORM}" "${GAME}")
 THREADED3D=$(get_setting threaded_3d "${PLATFORM}" "${GAME}")
 FOLLOW3D=$(get_setting follow_3d_renderer "${PLATFORM}" "${GAME}")
 MICTHRESH=$(get_setting microphone_sensitivity "${PLATFORM}" "${GAME}")
+SHADER=$(get_setting shader "${PLATFORM}" "${GAME}")
 
 #load gptokeyb support files
 control-gen_init.sh
@@ -82,21 +83,11 @@ fi
 cd /storage/.config/drastic/
 @HOTKEY@
 
-# Fix for libmali gpu driver on S922X platform
-if [ "${HW_DEVICE}" = "S922X" ]; then
-  GPUDRIVER=$(/usr/bin/gpudriver)
-
-  if [ "${GPUDRIVER}" = "libmali" ]; then
-    export SDL_VIDEO_GL_DRIVER=\/usr\/lib\/egl\/libGL.so.1
-    export SDL_VIDEO_EGL_DRIVER=\/usr\/lib\/egl\/libEGL.so.1
-  fi
-fi
-
 $GPTOKEYB "drastic" -c "drastic.gptk" &
 # Fix actual touch inputs by replacing touch->mouse translation and add hw mic support
 export LD_PRELOAD="/usr/lib/libdrastouch.so"
 export SDL_TOUCH_MOUSE_EVENTS="0"
 export DSHOOK_MIC_THRESH="${MICTHRESH}"
+export DSHOOK_SHADER="${SHADER:-none}"
 ./drastic "$1"
-_gptokeyb_pid="$(pidof gptokeyb 2>/dev/null)"
-[ -n "${_gptokeyb_pid}" ] && kill -9 ${_gptokeyb_pid}
+kill -9 $(pidof gptokeyb)
