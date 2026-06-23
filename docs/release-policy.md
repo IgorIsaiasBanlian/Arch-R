@@ -71,12 +71,36 @@ Tooling consumidor (Flasher, archr-update) pode parsear essa tag e mostrar banne
 3. Permanece em `next` por no mínimo 7 dias com feedback dos testers.
 4. Promove para `stable`: anúncio com tag apropriada (Action Required se houver migração).
 
-## Compatibilidade com `archr-update` existente
+## Infra de distribuição
 
-`archr-update` atual já aceita `BRANCH` como variável de canal e faz POST para `update.arch-r.io`. Nenhuma mudança no cliente é necessária. O servidor precisa entender:
+**Decisão registrada em 2026-06-23.**
 
-- `BRANCH=stable` (default): retorna último `YYYY.MM.PATCH` validado.
-- `BRANCH=next`: retorna último build da branch principal.
-- `BRANCH=dev`: retorna último build noturno (com warning de instabilidade).
+**Mirror único: GitHub Releases.** Tudo que ArchR distribui (imagem `.img.gz` e pacotes `.pkg.tar.zst` quando 2.1 estiver pronto) sai pelo GitHub. Justificativa:
 
-Quando 2.1 (pacman como update real) estiver implementado, os canais migram naturalmente para repos pacman separados (`archr-core-stable`, `archr-core-next`, `archr-core-dev`).
+- Custo zero. GitHub serve a CDN, TLS e storage como bônus do repo público.
+- Throughput global. CDN distribuída cobre o usuário onde estiver.
+- Limites suficientes. 2 GB por asset cobre o maior pacote (kernel + initramfs). Sem limite total por release nem por conta.
+- Já é o canal vigente. Reduzimos uma variável (não há "novo provedor para o usuário aprender").
+
+**Google Drive (10 TB do mantenedor):** ficou de fora do runtime. Usos legítimos discutidos e aprovados:
+- Backup das releases publicadas (via rclone após upload no GitHub).
+- Archive histórico de versões antigas que saíram do GitHub.
+- Assets pesados internos (BIOS de teste, gameplay para QA, scraper packs).
+- Não serve como mirror pacman: URLs com hash, virus-scan warning em arquivos >25 MB, throttling, range requests inconsistentes.
+
+**Cloudflare R2 ou Backblaze B2 como fallback:** avaliados, descartados por enquanto. Reavaliar se aparecer um problema concreto de disponibilidade do GitHub.
+
+## Plano de update sem legacy
+
+`archr-update` original faz POST para `update.arch-r.io`. Esse endpoint **nunca existiu**: o script nunca entregou update funcional. Significa que hoje o único caminho de update é reflashar a microSD com nova imagem baixada do GitHub Releases manualmente, e que **não há compatibilidade legada a preservar**.
+
+A implementação de 2.1 (pacman como update real) é portanto clean slate:
+
+1. Repo pacman `archr-linux/archr-repo` no GitHub.
+2. Cada release nesse repo é uma tag tipo `repo-YYYY.MM.PATCH`, com todos os `.pkg.tar.zst` da snapshot + `archr-core.db` assinado.
+3. Tags rolling `repo-stable`, `repo-next`, `repo-dev` mantêm sempre o snapshot mais recente do canal e ficam como alvo do `mirrorlist`.
+4. `/etc/pacman.d/mirrorlist` aponta para `https://github.com/archr-linux/archr-repo/releases/download/repo-<canal>`.
+5. `archr-update` reescrito como wrapper de `pacman -Syu` (algumas dezenas de linhas).
+6. Reflashar continua sendo o caminho de upgrade para major bumps (kernel ABI, FHS, etc.); pacman cobre incrementais.
+
+Primeira release ArchR a ter update via pacman será marco histórico. Pode ser RC5 ou v2.0 final, conforme prontidão da infra GPG e CI.

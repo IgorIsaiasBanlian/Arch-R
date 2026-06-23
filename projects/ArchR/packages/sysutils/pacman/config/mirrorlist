@@ -1,20 +1,15 @@
 #
-# Arch Linux ARM mirror list
-# Generated for ArchR distribution
+# ArchR pacman mirror list
+#
+# Auto-rewritten by archr-update based on system.cfg "updates.branch".
+# The line below is the stable-channel default; running
+#   archr-update <command>
+# regenerates the file from the current channel setting.
+#
+# Channels available:
+#   repo-stable  - monthly validated snapshot, default for end users
+#   repo-next    - validated next-channel build, for testers
+#   repo-dev     - nightly, may break, for maintainers
 #
 
-## Arch Linux ARM - Primary
-Server = http://mirror.archlinuxarm.org/$arch/$repo
-
-## Arch Linux ARM - US mirrors
-# Server = http://ca.us.mirror.archlinuxarm.org/$arch/$repo
-# Server = http://fl.us.mirror.archlinuxarm.org/$arch/$repo
-# Server = http://il.us.mirror.archlinuxarm.org/$arch/$repo
-# Server = http://nj.us.mirror.archlinuxarm.org/$arch/$repo
-
-## Arch Linux ARM - EU mirrors
-# Server = http://de.mirror.archlinuxarm.org/$arch/$repo
-# Server = http://dk.mirror.archlinuxarm.org/$arch/$repo
-# Server = http://eu.mirror.archlinuxarm.org/$arch/$repo
-# Server = http://hu.mirror.archlinuxarm.org/$arch/$repo
-# Server = http://sg.mirror.archlinuxarm.org/$arch/$repo
+Server = https://github.com/archr-linux/archr-repo/releases/download/repo-stable

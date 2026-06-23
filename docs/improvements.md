@@ -89,11 +89,17 @@ Identidade Arch vem dos 7 itens desta seção (pacman, PKGBUILD, FHS, rolling, K
 
 ### 2.1. Wirar pacman como mecanismo de update real
 
-- [ ] **Subir mirror `repo.arch-r.io`** L. Hospedar `archr-core` (sistema base) e `archr-extra` (emuladores, temas, scrapers) como repos pacman. Sync via CI quando build de release sai.
-- [ ] **Construir packages `.pkg.tar.zst` no pipeline de release** M. Hoje cuspimos `.img.gz`; passar a também produzir um pacote pacman por componente quando o build do package.mk concluir. Permite atualização granular.
-- [ ] **Substituir `archr-update` por wrapper de `pacman -Syu`** M. Apenas para upgrades incrementais. Reservar image-based para upgrades grandes (kernel, mudança de major version) com migração assistida.
-- [ ] **Suporte a `pacman -S <emulador>`** M. Quando 2.1.1 e 2.1.2 estiverem ativos, o usuário pode instalar emuladores opcionais sem reflash. Reduz tamanho da imagem base.
-- [ ] **Rollback via pacman cache** S. `/storage/.pacman/cache` já está reservado no package.mk; só falta UI no settings menu para "voltar para a release anterior".
+**Status: pipeline cliente pronto (2026-06-23).** Falta gerar a primeira release no `archr-linux/archr-repo` para o sistema ter o que sincronizar.
+
+- [x] **Decisão de infra: GitHub Releases como mirror único.** Sem VPS, sem `repo.arch-r.io`. Detalhes em `docs/release-policy.md`. Google Drive como backup; Cloudflare R2 fica como fallback futuro se aparecer problema concreto.
+- [x] **`archr-update` reescrito** como wrapper fino de `pacman -Syu`. 87 linhas (eram 188). Comandos: `archr-update [check|update|info]`. Channel lido de `system.cfg "updates.branch"` e refletido no mirrorlist via rewrite on-the-fly.
+- [x] **`pacman.conf` apontando para o repo `archr`** (não mais Arch Linux ARM repos). `SigLevel = Required DatabaseOptional` durante bootstrap; aperta para `Required` quando o keyring de produção entrar.
+- [x] **`pacman-init` adaptado**: testa conectividade via `github.com` em vez de `mirror.archlinuxarm.org`, popula keyring `archr` (não mais `archlinuxarm`).
+- [x] **`archr-keyring` reformulado**: ship empty placeholders por enquanto, hooks prontos para receber o keyring real (`archr.gpg`, `archr-trusted`, `archr-revoked`) quando a chave master for gerada.
+- [x] **`scripts/repo/gen-pacman-repo`**: empacota `build.*/install_pkg/<pkg>/` em `.pkg.tar.zst`, gera `.PKGINFO`, monta `archr.db` via `repo-add`. README ao lado documenta o workflow `gh release create repo-<canal>`.
+- [ ] **Gerar a chave master GPG**: chave ArchR offline + subchave de signer. Atualizar `archr-keyring/keys/` com `archr.gpg`, `archr-trusted`, `archr-revoked`. Bloqueia o primeiro release assinado.
+- [ ] **Primeira release no `archr-linux/archr-repo`**: criar o repo no GitHub, rodar `gen-pacman-repo` em build local, publicar `repo-dev` para teste interno antes de promover para `repo-next` e `repo-stable`.
+- [ ] **CI no `archr-linux/Arch-R`** que invoque `gen-pacman-repo` após `make docker-RK3326` e publique no `archr-repo` automaticamente. GitHub Actions free tier basta.
 
 ### 2.2. Aproximar do FHS
 
