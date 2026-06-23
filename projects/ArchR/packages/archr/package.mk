@@ -58,6 +58,10 @@ EOF
   # both `touch /var/cache/archr/fstrim.run` (writes through) and
   # readers checking the stamp.
   ln -sf /storage/.cache/fstrim.run        ${INSTALL}/var/cache/archr/fstrim.run
+  # Image-based updates: backing path /storage/.update is what the
+  # pre-boot bootloader scripts know about and cannot move; userland
+  # tooling reads/writes through the FHS bridge.
+  ln -sf /storage/.update                  ${INSTALL}/var/cache/archr/update
 }
 
 post_install() {

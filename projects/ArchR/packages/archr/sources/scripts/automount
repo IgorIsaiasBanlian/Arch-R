@@ -6,7 +6,7 @@
 . /etc/os-release
 
 ### Vars
-UPDATE_ROOT="/storage/.update"
+UPDATE_ROOT="/var/cache/archr/update"
 MOUNT_GAMES=$(get_setting system.automount)
 GAMES_DEVICE=$(get_setting system.gamesdevice)
 MS_PATH="/storage/roms"

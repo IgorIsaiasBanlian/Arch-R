@@ -177,8 +177,10 @@ mkdir -p $BASEDIR/$LOGDIR
   done
 
 # pack logfiles
-  mkdir -p /storage/logfiles
-  zip -jq /storage/logfiles/log-$DATE.zip $BASEDIR/$LOGDIR/*
+  # /var/log is /storage/.cache/log via var-log.mount on ArchR; lands on
+  # the rw overlay through the FHS path.
+  mkdir -p /var/log/archr/archive
+  zip -jq /var/log/archr/archive/log-$DATE.zip $BASEDIR/$LOGDIR/*
 
 # remove logdir
   rm -rf ${BASEDIR:?}/$LOGDIR

@@ -78,6 +78,9 @@ case "${1}" in
     umount /storage/roms 2>/dev/null ||:
     umount /storage/games-external 2>/dev/null ||:
     cd /
+    # /storage/.update is the backing path that the pre-boot bootloader
+    # scripts know about; preserve it by the real path (the FHS bridge
+    # /var/cache/archr/update points at the same dir).
     find /storage -mindepth 1 \( ! -regex '^/storage/.update.*' -a ! -regex '^/storage/roms.*' -a ! -regex '^/storage/games-.*' \) -delete 2>/dev/null
     mkdir /storage/.config/
     sync 2>/dev/null

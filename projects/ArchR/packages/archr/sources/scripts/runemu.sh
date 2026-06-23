@@ -10,8 +10,10 @@
 
 ### Shell trace + persistent debug log are gated by system.loglevel=verbose.
 ### Default (off/none/quiet) writes nothing to microSD on launch.
+### /var/log is mounted from /storage/.cache/log by var-log.mount, so
+### /var/log/runemu-debug.log lands on the rw overlay and survives.
 if [ "$(get_setting system.loglevel)" = "verbose" ]; then
-  RUNEMU_DEBUG="/storage/.cache/log/runemu-debug.log"
+  RUNEMU_DEBUG="/var/log/runemu-debug.log"
   mkdir -p "$(dirname "${RUNEMU_DEBUG}")"
   exec 2>>"${RUNEMU_DEBUG}"
   set -x

@@ -101,15 +101,28 @@ Hosts/resolv têm pipeline próprio (script `network-base-setup` lê
 - `timezone` → **Fase 7** (referenciado em patch do systemd; mover requer ajuste no patch)
 - `debug.archr` → **Fase 7** (stamp file trivial)
 
-### Fase 3 — Class F + G: logs e temp (13 paths)
+### Fase 3 — Class F + G: logs e temp
 
-**Objetivo:** alinhar com convenção `/var/log` e `/var/tmp`.
+**Status: concluída (2026-06-23).** Logs viram `/var/log/*` (que já é mount unit redirecionando para `/storage/.cache/log`); update vira `/var/cache/archr/update` via bridge symlink; overlayfs workdirs e bootloader handshake ficam no backing path por constraint de arquitetura.
 
-- `/storage/.cache/log/journal` → `/var/log/journal` (já é convenção systemd)
-- `/storage/.cache/log/runemu-debug.log` → `/var/log/archr/runemu-debug.log`
-- `/storage/logfiles/` → `/var/log/archr/`
-- `/storage/.tmp/*-workdir` → `/var/tmp/archr/*-workdir`
-- `/storage/.update/` → `/var/cache/archr/update/`
+| Path | Destino | Mecanismo |
+|------|---------|-----------|
+| `/storage/.cache/log/journal` | `/var/log/journal` | `var-log.mount` já existente (no-op) |
+| `/storage/.cache/log/runemu-debug.log` | `/var/log/runemu-debug.log` | runemu.sh aponta direto pro `/var/log` (mount entrega) |
+| `/storage/logfiles` | `/var/log/archr/archive` | createlog escreve via mount; tmpfiles cria backing |
+| `/storage/.update` | `/var/cache/archr/update` | bridge symlink; consumers userland atualizados |
+
+**Permanecem no backing path por design:**
+
+- `/storage/.tmp/*-workdir` (assets, cores, database, games, joypads, overlays, shaders): são *workdirs* de `overlayfs` montados em `system.d/tmp-*.mount` units. O kernel exige que `upperdir` e `workdir` estejam no mesmo filesystem; como `upperdir=/storage/<x>`, o `workdir` tem que ficar no mesmo `/storage`. Mover para `/var/tmp/archr` quebraria os 6 mount units de assets/cores/database/joypads/overlays/shaders do RetroArch. No-op.
+- `/storage/.boot.hint`: arquivo de handshake entre o bootloader U-Boot e o sistema rodando, gravado pré-boot pelo bootloader e lido por `autostart/003-upgrade`. Compartilhar via FHS exigiria mexer no script u-boot, fora de escopo. No-op.
+
+**Pré-boot keep-as-is:**
+- `busybox/scripts/init` (initramfs UPDATE_ROOT)
+- `devices/RK3326/bootloader/update.sh` (escreve `.boot.hint`)
+- `tmpfiles z_01_busybox.conf` (cria backing dirs)
+
+Userland tudo usa o path Arch-friendly.
 
 ### Fase 4 — Class D: state/data persistente (37 paths)
 
@@ -194,5 +207,5 @@ Migration scripts ficam em `projects/ArchR/packages/archr/sources/post-update.d/
 - [x] Fase 0 concluída (2026-06-23): `010-archr-fhs` em `/etc/profile.d`, archr(7) com seção ENVIRONMENT, vars apontando para `/storage/...`. Risco zero.
 - [x] Fase 1 marcada como no-op (2026-06-23): systemd já entrega `/etc/{modules-load.d,sysctl.d,tmpfiles.d,udev/{hwdb,rules}.d,systemd/*conf.d}` via symlinks de build-time. FHS-correto sem mudança. Detalhes na seção da Fase 1 deste documento.
 - [x] Fase 2 concluída (2026-06-23): 5 caches realmente regeneráveis migrados via bridge symlinks (mesa, fontconfig, kernel-overlays, locpath, fstrim.run). Paths state/log realocados para F3/F4. Detalhes na Fase 2.
-- [ ] Fase 3 — não iniciada (Class F+G: logs e temp).
+- [x] Fase 3 concluída (2026-06-23): logs reaproveitam `var-log.mount` (/var/log = /storage/.cache/log), update bridged via `/var/cache/archr/update`, overlayfs workdirs e bootloader handshake permanecem no backing path por constraint.
 - [ ] Fase 4..7 — não iniciadas.

@@ -85,17 +85,17 @@ main_update() {
         exit 1
     fi
 
-    # Ensure that the /storage/.update folder exists.
-    if [ ! -d "/storage/.update" ]; then
-        mkdir -p /storage/.update || { echo "Failed to create /storage/.update directory."; exit 1; }
+    # Ensure that the /var/cache/archr/update folder exists.
+    if [ ! -d "/var/cache/archr/update" ]; then
+        mkdir -p /var/cache/archr/update || { echo "Failed to create /var/cache/archr/update directory."; exit 1; }
     fi
 
     # Extract the file name from the update URL.
     filename=$(basename "$update_url")
 
-    # Define download destinations inside /storage/.update folder using the original file names.
-    update_file="/storage/.update/${filename}"
-    checksum_file="/storage/.update/${filename}.sha256"
+    # Define download destinations inside /var/cache/archr/update folder using the original file names.
+    update_file="/var/cache/archr/update/${filename}"
+    checksum_file="/var/cache/archr/update/${filename}.sha256"
 
     # Download the update file.
     echo "Downloading update file..."
