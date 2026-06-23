@@ -124,15 +124,37 @@ Hosts/resolv têm pipeline próprio (script `network-base-setup` lê
 
 Userland tudo usa o path Arch-friendly.
 
-### Fase 4 — Class D: state/data persistente (37 paths)
+### Fase 4 — Class D: state/data persistente
 
-**Objetivo:** mover state runtime sem perder histórico.
+**Status: concluída (2026-06-23).** Toda state directory referenciada por systemd unit, runtime script ou config principal agora aponta para path Arch-convencional via bridge symlink. Os dados em disco não se moveram: o substrato continua `/storage/.cache/<x>`.
 
-- `/storage/.pacman/db` → `/var/lib/pacman/db` (já é convenção pacman; ver Seção 2.1)
-- `/storage/.pacman/cache` → `/var/cache/pacman/pkg`
-- `/storage/.kodi` → `/var/lib/kodi`
-- `/storage/.local/share/<x>` → `/var/lib/archr/data/<x>`
-- `/storage/joypads`, `/storage/overlays`, `/storage/remappings`, `/storage/shaders` → `/var/lib/archr/<x>`
+| Componente | Path antigo | Path FHS-Arch | Commit |
+|------------|-------------|---------------|--------|
+| openssh host keys | `/storage/.cache/ssh` | `/var/lib/sshd` | F4.1 |
+| iwd state | `/storage/.cache/iwd` | `/var/lib/iwd` | F4.1 |
+| bluez paired devices | `/storage/.cache/bluetooth` | `/var/lib/bluetooth` | F4.2 |
+| service enable flags | `/storage/.cache/services` | `/var/lib/archr/services` | F4.3 |
+| samba passdb | `/storage/.cache/samba` | `/var/lib/samba/private` | F4.3 |
+| connman state | `/storage/.cache/connman` | `/var/lib/connman` | F4.3 |
+| wireguard tunnels | `/storage/.config/wireguard` | `/etc/wireguard` | F4.3 |
+| tailscale state | `/storage/.cache/tailscale` | `/var/lib/tailscale` | F4.3 |
+| cron spool | `/storage/.cache/cron` | `/var/spool/cron` | F4.3 |
+
+**Bridges instalados.** archr meta-package agora cria 7 bridges em F4 (services, samba/private, tailscale, cron) e outros pacotes plantam o seu próprio em post_install (openssh, iwd, bluez, connman). Padrão consistente: cada owner gerencia seu bridge.
+
+**No-op por outras razões:**
+- `/storage/.pacman/{db,cache}` → `/var/lib/pacman` e `/var/cache/pacman/pkg` já existem como bridges no `pacman/package.mk` (era convenção do pacote desde o começo).
+- `/storage/.cache/rfkill` → `/var/lib/systemd/rfkill` já existe como `L+` no `tmpfiles.d/z_01_archr.conf`.
+- `/storage/.kodi` não é referenciado por nenhum arquivo de `projects/ArchR/`: ArchR não roda Kodi (refs em `packages/` são herança LibreELEC top-level, não afetam o runtime).
+
+**Realocado para outras fases:**
+- `/storage/.local/share/<emu>` (dolphin, duckstation, gmu, m8c) é per-emulator data e vai em **F5** (Class B) junto com configs do mesmo emulador.
+- `/storage/.pacman/{build,packages,sources,logs}` aguarda Arch-ification **2.1** (pacman wired ao userland).
+- `/storage/.cache/timezone` aguarda **F7**: o path está embedded num patch do systemd (`systemd-0600-timedated-use-run-archr-localtime.patch`) e migrar requer regerar o patch.
+- `/storage/.cache/debug.archr` aguarda **F7** (stamp file trivial).
+
+**Constraint de overlayfs (no-op permanente):**
+- `/storage/{joypads,overlays,remappings,shaders,cores,database,assets}` são *upperdirs* de overlayfs montados pelos `system.d/tmp-*.mount` units do RetroArch. Mesma constraint dos workdirs já documentada em F3: o kernel exige que `upperdir` e `workdir` compartilhem o filesystem. Mover quebraria os 7 mount units. O usuário e RetroArch veem `/usr/share/retroarch-{assets,overlays,...}` montados, não os upperdirs.
 
 ### Fase 5 — Class B: configs de app/emulador (76 paths)
 
@@ -208,4 +230,5 @@ Migration scripts ficam em `projects/ArchR/packages/archr/sources/post-update.d/
 - [x] Fase 1 marcada como no-op (2026-06-23): systemd já entrega `/etc/{modules-load.d,sysctl.d,tmpfiles.d,udev/{hwdb,rules}.d,systemd/*conf.d}` via symlinks de build-time. FHS-correto sem mudança. Detalhes na seção da Fase 1 deste documento.
 - [x] Fase 2 concluída (2026-06-23): 5 caches realmente regeneráveis migrados via bridge symlinks (mesa, fontconfig, kernel-overlays, locpath, fstrim.run). Paths state/log realocados para F3/F4. Detalhes na Fase 2.
 - [x] Fase 3 concluída (2026-06-23): logs reaproveitam `var-log.mount` (/var/log = /storage/.cache/log), update bridged via `/var/cache/archr/update`, overlayfs workdirs e bootloader handshake permanecem no backing path por constraint.
-- [ ] Fase 4..7 — não iniciadas.
+- [x] Fase 4 concluída (2026-06-23): 9 state dirs (ssh, iwd, bluetooth, services, samba, connman, wireguard, tailscale, cron) movidos para paths Arch-convencionais via bridge symlinks. pacman db/cache e rfkill já eram bridges. `.local/share` realocado para F5. Detalhes na Fase 4.
+- [ ] Fase 5..7 — não iniciadas.
