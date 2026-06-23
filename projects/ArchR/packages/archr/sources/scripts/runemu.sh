@@ -419,7 +419,10 @@ get_gpu_performance_level >/tmp/.gpu_performance_level
 ### root path itself when MESA_SHADER_CACHE_DIR points somewhere new; the
 ### result is silent fall-through to "no cache" and a stutter every time
 ### the user re-launches a game whose shaders should already be hot.
-[ -d /storage/.cache/mesa_shader_cache ] || mkdir -p /storage/.cache/mesa_shader_cache 2>/dev/null
+### /var/cache/mesa is a symlink into /storage/.cache/mesa_shader_cache
+### installed by the archr meta-package; create through the symlink so
+### the underlying overlay path exists.
+[ -d /var/cache/mesa ] || mkdir -p /var/cache/mesa 2>/dev/null
 
 if [ "${DEVICE_HAS_FAN}" = "true" ]
 then

@@ -14,7 +14,9 @@ export PAN_MESA_DEBUG=forcepack
 # Skip GL error checking — emulators don't query glGetError defensively.
 export MESA_NO_ERROR=1
 
-# Persistent shader cache on /storage to survive reboots and avoid
-# recompilation every launch. Mesa creates the dir on first write.
-export MESA_SHADER_CACHE_DIR=/storage/.cache/mesa_shader_cache
+# Persistent shader cache via the FHS bridge symlink set up by the
+# archr meta-package: /var/cache/mesa -> /storage/.cache/mesa_shader_cache.
+# Surfaces an Arch-friendly path while the writes still land on the rw
+# storage overlay so the cache survives reboots.
+export MESA_SHADER_CACHE_DIR=/var/cache/mesa
 export MESA_SHADER_CACHE_MAX_SIZE=128MB

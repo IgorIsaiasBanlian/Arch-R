@@ -46,6 +46,12 @@ EOF
   # Always install the update script
   mkdir -p $INSTALL/usr/share/bootloader
   find_file_path bootloader/update.sh && cp -av ${FOUND_PATH} ${INSTALL}/usr/share/bootloader
+
+  ### FHS bridge symlinks: make Arch-standard cache locations resolve into
+  ### the /storage overlay. Apps and inspection tools see /var/cache/<x>;
+  ### writes land in /storage/.cache/<x> (rw overlay).
+  mkdir -p ${INSTALL}/var/cache
+  ln -sf /storage/.cache/mesa_shader_cache ${INSTALL}/var/cache/mesa
 }
 
 post_install() {
