@@ -100,10 +100,15 @@ EOF
   # Class Z odd corners. Each path has a different reason but the same
   # idea: surface lives at the FHS address, substrate stays on the
   # overlay so existing data persists.
+  #
+  # Only paths without an umbrella in scope need an explicit bridge.
+  # hatari and openbor fall through the data/games umbrellas already:
+  # /var/lib/archr/data/hatari resolves to /storage/.local/share/hatari
+  # at runtime via the data symlink; same for games/openbor. The
+  # start_hatari.sh and start_OpenBOR.sh scripts already mkdir -p the
+  # final dir so it materializes on first launch.
   mkdir -p ${INSTALL}/opt
   ln -sf /storage/jdk                      ${INSTALL}/opt/jdk
-  ln -sf /storage/.hatari                  ${INSTALL}/var/lib/archr/data/hatari
-  ln -sf /storage/openbor                  ${INSTALL}/var/lib/archr/games/openbor
 }
 
 post_install() {
