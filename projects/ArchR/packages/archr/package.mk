@@ -50,8 +50,10 @@ EOF
   ### FHS bridge symlinks: make Arch-standard cache locations resolve into
   ### the /storage overlay. Apps and inspection tools see /var/cache/<x>;
   ### writes land in /storage/.cache/<x> (rw overlay).
-  mkdir -p ${INSTALL}/var/cache
+  mkdir -p ${INSTALL}/var/cache/archr
   ln -sf /storage/.cache/mesa_shader_cache ${INSTALL}/var/cache/mesa
+  ln -sf /storage/.cache/kernel-overlays   ${INSTALL}/var/cache/archr/kernel-overlays
+  ln -sf /storage/.cache/locpath           ${INSTALL}/var/cache/archr/locpath
 }
 
 post_install() {

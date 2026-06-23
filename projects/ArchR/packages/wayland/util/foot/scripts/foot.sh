@@ -12,7 +12,7 @@ if [ ! -f ${FOOT_CONFIG_DIR}/foot.ini ]; then
 fi
 
 if [ -z "${LOCPATH}" ]; then
-  export LOCPATH="/storage/.cache/locpath"
+  export LOCPATH="/var/cache/archr/locpath"
 fi
 
 /usr/bin/foot > ${FOOT_LOG_FILE} 2>&1
