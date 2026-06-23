@@ -276,7 +276,7 @@ case ${EMULATOR} in
       freej2me*)
         ${VERBOSE} && log $0 "Setup freej2me requirements."
         /usr/bin/freej2me.sh
-        JAVA_HOME='/storage/jdk'
+        JAVA_HOME='/opt/jdk'
         export JAVA_HOME
         PATH="$JAVA_HOME/bin:$PATH"
         export PATH

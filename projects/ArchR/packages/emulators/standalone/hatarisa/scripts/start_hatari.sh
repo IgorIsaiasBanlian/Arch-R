@@ -5,7 +5,7 @@
 . /etc/profile
 
 # Set some common variables
-HATARI_DIR_HOME=/storage/.hatari
+HATARI_DIR_HOME=/var/lib/archr/data/hatari
 HATARI_DIR=/storage/.config/hatari
 HATARI_CONFIG_DIR=$HATARI_DIR/conf
 HATARI_TMP_DIR=/tmp/hatari

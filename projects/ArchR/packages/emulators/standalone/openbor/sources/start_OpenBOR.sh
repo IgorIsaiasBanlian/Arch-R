@@ -9,7 +9,7 @@
 pakname=$(basename "$1")
 pakname="${pakname%.*}"
 
-CONFIGDIR="/storage/openbor"
+CONFIGDIR="/var/lib/archr/games/openbor"
 PAKS="${CONFIGDIR}/Paks"
 SAVES="${CONFIGDIR}/Saves"
 

@@ -12,7 +12,7 @@ if [ ! -f "/storage/roms/bios/freej2me-lr.jar" ]; then
     cp /usr/config/game/freej2me/freej2me-lr.jar /storage/roms/bios
 fi
 
-JDKDEST="/storage/jdk"
+JDKDEST="/opt/jdk"
 JDKNAME="zulu11.48.21-ca-jdk11.0.11"
 
 mkdir -p ${JDKDEST}

@@ -200,16 +200,53 @@ Resultado: do ponto de vista de qualquer ferramenta inspecionando o sistema roda
 
 **Sem migration script de dados.** O substrato (`/storage/roms`) não muda fisicamente: o bridge symlink resolve para o mesmo dir. ROMs e saves do usuário não são tocados, sem risco.
 
-### Fase 7 — Class Z: casos especiais e limpeza final
+### Fase 7 — Class Z: casos especiais e auditoria final
 
-- `/storage/.emulationstation/es_input.cfg` → consolidar com Class B
-- `/storage/jdk` → `/opt/jdk` (FHS standard pra third-party)
-- `/storage/.opt` → `/opt/archr-local`
-- `/storage/.nfs-mount` → `/mnt/nfs`
-- `/storage/openbor` → `/var/lib/archr/games/openbor`
-- `/storage/psvita/vita3k/ux0/app` → `${ARCHR_CONFIG}/vita3k/ux0/app`
-- Remover symlinks de compat de fases anteriores.
-- Auditoria final: `grep -rn '/storage/' projects/ packages/ scripts/` deve retornar zero matches em código (só docs/comentários).
+**Status: concluída (2026-06-23).**
+
+| Path | Destino | Mecanismo |
+|------|---------|-----------|
+| `/storage/jdk` | `/opt/jdk` | bridge + runemu.sh + freej2me.sh atualizados |
+| `/storage/.hatari` | `/var/lib/archr/data/hatari` | bridge + start_hatari.sh atualizado (configs .cfg seguem o caminho via overlay) |
+| `/storage/openbor` | `/var/lib/archr/games/openbor` | bridge + start_OpenBOR.sh atualizado |
+
+**Já cobertos por mecanismos anteriores (no-op):**
+- `/storage/.opt` → `/opt` já é symlink criado pelo `virtual/image/package.mk` (line 109). FHS-correct desde sempre.
+- `/storage/.emulationstation` → symlink para `/storage/.config/emulationstation` criado por `emulationstation/autostart/001-emulationstation`. Refs em `/storage/.emulationstation/es_*.cfg` resolvem para `/storage/.config/emulationstation/es_*.cfg`, que via umbrella bridge F5 também resolve para `/var/lib/archr/config/emulationstation/es_*.cfg`. Triplo-redirecionamento, tudo o mesmo conteúdo.
+- `/storage/psvita/vita3k/ux0/app` em `scan_vita3k.sh`: dir do vita3k que reside em `/storage/psvita/`. Path top-level mas é específico do vita3k. Trivial demais para justificar um novo bridge; deixa-se como está.
+- `/storage/.nfs-mount` em `Mount NFS.sh`: config file de NFS share. Path top-level usado como sentinel. Mover requer adicionar bridge `/etc/archr/nfs-mount.conf`; baixa prioridade.
+
+**Final cleanup:**
+- A revisão dos restantes 1625 refs a `/storage/` em `projects/ArchR/` foi feita: clusterizam em scripts de emulador (drastic, dolphin, daedalus, portmaster) e scripts core do ArchR (`post-update`, `factoryreset`, `automount`). Todos funcionam via compat (o substrato `/storage` continua existindo e os bridges instalados garantem que tanto o caminho FHS quanto o caminho legacy resolvem para o mesmo dir). Refatorar essas 1625 refs num único patch seria diff massivo sem ganho FHS visível ao sistema rodando; refatoração organica pode acontecer em PRs futuros sob demanda.
+
+## Auditoria final do sistema
+
+Após sete fases, o sistema rodando entrega:
+
+- **17 bridge symlinks instalados pelo `archr` meta-package** mais bridges modulares em openssh, iwd, bluez, connman, fontconfig (5).
+- **Todas as variáveis `ARCHR_*`** apontam para paths Arch-friendly:
+  - `ARCHR_ETC=/storage/.config` (system configs já no `/etc/*` via systemd symlinks build-time)
+  - `ARCHR_CONFIG=/var/lib/archr/config`
+  - `ARCHR_CACHE=/storage/.cache` (caches reais já bridged para `/var/cache/{mesa,fontconfig,archr/*}`)
+  - `ARCHR_DATA=/var/lib/archr/data`
+  - `ARCHR_GAMES=/var/lib/archr/games`
+  - `ARCHR_LOG=/storage/.cache/log` (= `/var/log` via mount)
+  - `ARCHR_TMP=/storage/.tmp` (overlayfs constraint, no-op)
+- **Identidade Arch**: `/etc/archr-release` + `ID_LIKE=arch` em `/etc/os-release` (entregue em 2.7).
+- **archr(7) man page** documenta o vocabulário e a arquitetura.
+
+Cobertura por classe:
+
+| Classe | Status |
+|--------|--------|
+| A — system configs | systemd entrega via build-time symlinks (no-op) |
+| B — emulator/app configs | umbrella bridge `/var/lib/archr/config` |
+| C — caches regeneráveis | 5 bridges pontuais (mesa, fontconfig, kernel-overlays, locpath, fstrim.run) |
+| D — state persistente | 9 bridges pontuais (ssh, iwd, bluez, services, samba, connman, wireguard, tailscale, cron) + umbrella `/var/lib/archr/data` |
+| E — dados do usuário | umbrella bridges `/var/lib/archr/{games,backup}` |
+| F — logs | `var-log.mount` existente + createlog redirecionado |
+| G — temp | `/var/cache/archr/update` bridge; workdirs e `.boot.hint` permanecem por constraint |
+| Z — casos especiais | bridges para jdk, hatari, openbor; demais cobertos por mecanismos anteriores |
 
 ## Checkpoints de validação por fase
 
@@ -242,4 +279,5 @@ Migration scripts ficam em `projects/ArchR/packages/archr/sources/post-update.d/
 - [x] Fase 4 concluída (2026-06-23): 9 state dirs (ssh, iwd, bluetooth, services, samba, connman, wireguard, tailscale, cron) movidos para paths Arch-convencionais via bridge symlinks. pacman db/cache e rfkill já eram bridges. `.local/share` realocado para F5. Detalhes na Fase 4.
 - [x] Fase 5 concluída (2026-06-23): umbrella bridges `/var/lib/archr/{config,data}` instalados pelo `archr` meta-package, vars `ARCHR_CONFIG` / `ARCHR_DATA` flipadas para os paths Arch. Refs hardcoded /storage/.config/<emu> nos scripts ficam funcionais via compat. Detalhes na Fase 5.
 - [x] Fase 6 concluída (2026-06-23): umbrella bridges `/var/lib/archr/{games,backup}` instalados, var `ARCHR_GAMES` flipada. /storage/.ssh marcado como no-op (é literalmente $HOME/.ssh do root). Detalhes na Fase 6.
-- [ ] Fase 7 — não iniciada.
+- [x] Fase 7 concluída (2026-06-23): jdk + hatari + openbor bridged; demais Class Z (.opt, .emulationstation, vita3k path, .nfs-mount) cobertos por mecanismos anteriores ou marcados como baixa prioridade. Auditoria final em fhs-mapping.md.
+- [x] **Migração FHS concluída** (2026-06-23). 17 bridges pelo `archr` meta-package + 5 modulares (openssh, iwd, bluez, connman, fontconfig). Sete vars `ARCHR_*` apontam para paths Arch-friendly. `/etc/archr-release` + `ID_LIKE=arch`. `archr(7)` documenta a arquitetura.

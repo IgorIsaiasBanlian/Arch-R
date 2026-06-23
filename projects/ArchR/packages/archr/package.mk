@@ -96,6 +96,14 @@ EOF
   # refactors can happen organically.
   ln -sf /storage/roms                     ${INSTALL}/var/lib/archr/games
   ln -sf /storage/backup                   ${INSTALL}/var/lib/archr/backup
+
+  # Class Z odd corners. Each path has a different reason but the same
+  # idea: surface lives at the FHS address, substrate stays on the
+  # overlay so existing data persists.
+  mkdir -p ${INSTALL}/opt
+  ln -sf /storage/jdk                      ${INSTALL}/opt/jdk
+  ln -sf /storage/.hatari                  ${INSTALL}/var/lib/archr/data/hatari
+  ln -sf /storage/openbor                  ${INSTALL}/var/lib/archr/games/openbor
 }
 
 post_install() {
