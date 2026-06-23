@@ -13,7 +13,7 @@ PKG_LONGDESC="Fontconfig is a library for font customization and configuration."
 PKG_TOOLCHAIN="configure"
 
 PKG_CONFIGURE_OPTS_TARGET="--with-arch=${TARGET_ARCH} \
-                           --with-cache-dir=/storage/.cache/fontconfig \
+                           --with-cache-dir=/var/cache/fontconfig \
                            --with-default-fonts=/usr/share/fonts \
                            --without-add-fonts \
                            --disable-dependency-tracking \
@@ -34,4 +34,11 @@ post_configure_target() {
 
 post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/bin
+
+  # FHS bridge: cache dir is baked in at configure (/var/cache/fontconfig),
+  # but the underlying storage on ArchR lives on the rw overlay. The
+  # symlink lets fontconfig write to the Arch-standard path while data
+  # persists under /storage/.cache/fontconfig across reboots.
+  mkdir -p ${INSTALL}/var/cache
+  ln -sf /storage/.cache/fontconfig ${INSTALL}/var/cache/fontconfig
 }
