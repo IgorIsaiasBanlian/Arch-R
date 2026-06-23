@@ -119,9 +119,10 @@ Identidade Arch vem dos 7 itens desta seção (pacman, PKGBUILD, FHS, rolling, K
 
 ### 2.5. KISS e remoção de inertia
 
-- [ ] **Auditoria de quirks de hardware mortas** M. `quirks.d/` herdou items de JELOS/ROCKNIX para devices que não suportamos. Marcar com `[ARCHIR-PRUNE-CANDIDATE]` e revisar em batch.
-- [ ] **Splash + UX padrão** S. Splash atual ainda chama `rocknix-splash` antes do rename. Já corrigido no `archr-splash/package.mk` linha 13-14; validar e remover sed quando o upstream `rocknix-splash` virar fork puro.
-- [ ] **Simplificar `runemu.sh`** L. 1500+ linhas com if/else de 30 emuladores. Refatorar em plugins (um arquivo por emulador). Item caro mas paga em manutenibilidade.
+- [x] **Poda de quirks de hardware mortas** (2026-06-23). 9 platforms (H700, RK3399, RK3566, RK3588, S922X, SDM845, SM8250, SM8550, SM8650) e 42 devices que nenhum DTB nosso pode selecionar removidos. 352 arquivos, 8037 linhas. Sobrou só platform RK3326 + 14 devices que correspondem a um DTS em `projects/ArchR/devices/RK3326/linux/dts/rockchip/`.
+- [~] **Splash sed rename**. O `archr-splash/package.mk` ainda faz `sed -i 's|TARGET=rocknix-splash|TARGET=archr-splash|'` no post_unpack porque o repo `archr-linux/archr-splash` ainda chama o binário internamente de `rocknix-splash`. Remover quando o fork upstream completar o rename.
+- [ ] **Cases mortos em scripts/packages** S. Após a poda de platforms/, os scripts ainda têm `case ${DEVICE} in SM8250) ...; H700) ...; esac` que são dead branches inofensivos (DEVICE=RK3326 nunca casa). Limpar quando o arquivo for tocado por outro motivo.
+- [ ] **Refator `runemu.sh`** M. 578 linhas (não 1500+ como o doc original sugeria), 18 case statements, 12 blocos emulator-specific. Refator em plugins por emulador continua sendo um ganho de manutenibilidade, mas a urgência é menor: o arquivo é navegável como está. Item orgânico, sem prazo.
 
 ### 2.6. Documentação no estilo ArchWiki
 
