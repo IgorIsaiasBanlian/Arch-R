@@ -173,4 +173,6 @@ packages/sysutils/open-vm-tools/
 
 #other
 docs/*
+!docs/improvements.md
+!docs/release-policy.md
 bench-results/config/mipi-generator/__pycache__/
