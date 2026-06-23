@@ -76,6 +76,17 @@ EOF
   # cron spool (Arch convention; busybox crond walks the subtree).
   mkdir -p ${INSTALL}/var/spool
   ln -sf /storage/.cache/cron              ${INSTALL}/var/spool/cron
+
+  # Class B umbrella bridges. Emulator and app configs continue to live
+  # in /storage/.config/<emu> and /storage/.local/share/<emu> on disk;
+  # these bridges give them Arch-friendly surface paths so inspection
+  # tools, the ARCHR_CONFIG / ARCHR_DATA variables and migrated scripts
+  # all resolve into the same overlay storage. Per-emulator scripts can
+  # be flipped to /var/lib/archr/config/<emu> incrementally without
+  # this bridge having to change.
+  ln -sf /storage/.config                  ${INSTALL}/var/lib/archr/config
+  mkdir -p ${INSTALL}/var/lib/archr
+  ln -sf /storage/.local/share             ${INSTALL}/var/lib/archr/data
 }
 
 post_install() {

@@ -27,14 +27,14 @@
 # Class A: system configuration (-> /etc/archr eventually)
 export ARCHR_ETC="${ARCHR_ETC:-/storage/.config}"
 
-# Class B: user/app configuration (-> /var/lib/archr/config eventually)
-export ARCHR_CONFIG="${ARCHR_CONFIG:-/storage/.config}"
+# Class B: user/app configuration (FHS surface bridged to /storage/.config)
+export ARCHR_CONFIG="${ARCHR_CONFIG:-/var/lib/archr/config}"
 
 # Class C: regenerable cache (-> /var/cache/archr eventually)
 export ARCHR_CACHE="${ARCHR_CACHE:-/storage/.cache}"
 
-# Class D: persistent state/data (-> /var/lib/archr/data eventually)
-export ARCHR_DATA="${ARCHR_DATA:-/storage/.local/share}"
+# Class D: persistent state/data (FHS surface bridged to /storage/.local/share)
+export ARCHR_DATA="${ARCHR_DATA:-/var/lib/archr/data}"
 
 # Class E: user games library and adjacent media (-> /var/lib/archr/games eventually)
 export ARCHR_GAMES="${ARCHR_GAMES:-/storage/roms}"

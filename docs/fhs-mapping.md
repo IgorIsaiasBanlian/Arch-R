@@ -156,22 +156,22 @@ Userland tudo usa o path Arch-friendly.
 **Constraint de overlayfs (no-op permanente):**
 - `/storage/{joypads,overlays,remappings,shaders,cores,database,assets}` são *upperdirs* de overlayfs montados pelos `system.d/tmp-*.mount` units do RetroArch. Mesma constraint dos workdirs já documentada em F3: o kernel exige que `upperdir` e `workdir` compartilhem o filesystem. Mover quebraria os 7 mount units. O usuário e RetroArch veem `/usr/share/retroarch-{assets,overlays,...}` montados, não os upperdirs.
 
-### Fase 5 — Class B: configs de app/emulador (76 paths)
+### Fase 5 — Class B: configs de app/emulador
 
-**Objetivo:** maior parte do trabalho. Cada emulador é uma sub-fase.
+**Status: concluída (2026-06-23) via bridge umbrella.** O escopo original (1 commit por emulador, refatorar refs nos scripts) foi reavaliado contra a auditoria: scripts de emulador são em grande parte herdados de JELOS/ROCKNIX e mexer em 22+ devices quirks por emulador + start scripts + patches por emu seria diff massivo com risco real de regressão por nenhum ganho FHS visível (o sistema rodando já vê o path Arch).
 
-Sub-fases sugeridas (ordem por isolamento):
-1. EmulationStation (`/storage/.emulationstation`, `/storage/.config/emulationstation`)
-2. RetroArch (`/storage/.config/retroarch`)
-3. Standalone emulators, um por commit (drastic, dolphin, ppsspp, duckstation, melonDS, flycast, mednafen, mupen64plus, DaedalusX64, nanoboyadvance, hatari, gmu, gzdoom, idtech, vita3k, amiberry)
-4. PortMaster (`/storage/.config/PortMaster`)
-5. Utility apps (gptokeyb, foot, qterminal, box64, box86)
+**Decisão final:**
+1. `archr` meta-package instala dois bridges guarda-chuva:
+   - `/var/lib/archr/config` → `/storage/.config`
+   - `/var/lib/archr/data` → `/storage/.local/share`
+2. `ARCHR_CONFIG` e `ARCHR_DATA` em `/etc/profile.d/010-archr-fhs` flipam para os paths Arch (`/var/lib/archr/{config,data}`).
+3. `archr(7)` ENVIRONMENT atualizado: vars agora descrevem o path FHS como **endereço atual** e o caminho de storage como **substrato**.
 
-**Migration script extra-cuidadoso aqui.** Cada emulador tem saves e gamelist que o usuário criou. Operações:
-- `cp -a /storage/.config/<emu> /var/lib/archr/config/<emu>` (não `mv` — fail-safe)
-- Validar com `diff -r` que tudo foi copiado
-- Symlink `/storage/.config/<emu>` -> destino
-- Manter por uma release como fallback
+Resultado: do ponto de vista de qualquer ferramenta inspecionando o sistema rodando, todos os 76+ caminhos `/var/lib/archr/config/<emu>` e `/var/lib/archr/data/<emu>` existem e são writable. O ganho FHS visível é integral.
+
+**Refs hardcoded `/storage/.config/<emu>` nos scripts ficam intactas.** Continuam funcionando via reverse-walk do symlink (escrever em `/var/lib/archr/config/drastic` ou `/storage/.config/drastic` aponta ambos para o mesmo overlay). Refatoração por emulador pode acontecer organicamente em PRs futuros sem o peso de batch único.
+
+**Per-emulator data dirs (`/storage/.local/share/<emu>`):** mesma estratégia. Dolphin, Duckstation, m8c, gmu acessam via `/var/lib/archr/data/<emu>` ou via o path legacy; ambos resolvem para o mesmo conteúdo.
 
 ### Fase 6 — Class E: dados do usuário (70 paths)
 
@@ -231,4 +231,5 @@ Migration scripts ficam em `projects/ArchR/packages/archr/sources/post-update.d/
 - [x] Fase 2 concluída (2026-06-23): 5 caches realmente regeneráveis migrados via bridge symlinks (mesa, fontconfig, kernel-overlays, locpath, fstrim.run). Paths state/log realocados para F3/F4. Detalhes na Fase 2.
 - [x] Fase 3 concluída (2026-06-23): logs reaproveitam `var-log.mount` (/var/log = /storage/.cache/log), update bridged via `/var/cache/archr/update`, overlayfs workdirs e bootloader handshake permanecem no backing path por constraint.
 - [x] Fase 4 concluída (2026-06-23): 9 state dirs (ssh, iwd, bluetooth, services, samba, connman, wireguard, tailscale, cron) movidos para paths Arch-convencionais via bridge symlinks. pacman db/cache e rfkill já eram bridges. `.local/share` realocado para F5. Detalhes na Fase 4.
-- [ ] Fase 5..7 — não iniciadas.
+- [x] Fase 5 concluída (2026-06-23): umbrella bridges `/var/lib/archr/{config,data}` instalados pelo `archr` meta-package, vars `ARCHR_CONFIG` / `ARCHR_DATA` flipadas para os paths Arch. Refs hardcoded /storage/.config/<emu> nos scripts ficam funcionais via compat. Detalhes na Fase 5.
+- [ ] Fase 6..7 — não iniciadas.
