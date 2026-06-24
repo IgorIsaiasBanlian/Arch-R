@@ -264,6 +264,16 @@ post_makeinstall_target() {
   ln -sf /storage/.config/timesyncd.conf.d ${INSTALL}/etc/systemd/timesyncd.conf.d
   safe_remove ${INSTALL}/etc/sysctl.d
   ln -sf /storage/.config/sysctl.d ${INSTALL}/etc/sysctl.d
+  # /etc/sysctl.d aponta para /storage que ainda não está montado
+  # quando systemd-sysctl roda (Before=sysinit.target). Resultado: os
+  # archr.conf / 99-archr-networking.conf nunca eram aplicados no boot
+  # — dirty_writeback_centisecs, BBR/fq_codel, ip_forward etc. ficavam
+  # no default do kernel. Replicar os defaults da distro em
+  # /usr/lib/sysctl.d (rootfs, sempre acessível) garante a aplicação
+  # antes de /storage subir. A cópia em /etc/sysctl.d continua sendo o
+  # ponto de override do usuário (last-wins).
+  mkdir -p ${INSTALL}/usr/lib/sysctl.d
+  cp -PR ${PKG_DIR}/config/sysctl.d/*.conf ${INSTALL}/usr/lib/sysctl.d/
   safe_remove ${INSTALL}/etc/tmpfiles.d
   ln -sf /storage/.config/tmpfiles.d ${INSTALL}/etc/tmpfiles.d
   safe_remove ${INSTALL}/etc/udev/hwdb.d

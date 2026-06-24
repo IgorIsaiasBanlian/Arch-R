@@ -9,6 +9,18 @@ ROOTPASS="$1"
 LPC=$(awk -F: '/^root/{print $3}' /storage/.cache/shadow)
 CURRENT=$(awk -F: '/^root/{print $2}' /storage/.cache/shadow)
 
+# Short-circuit no-op runs. 007-rootpw chama setrootpass a cada boot
+# com a senha já gravada — cryptpw sha512 + smbpasswd + syncthing
+# generate juntos custam ~6s mesmo quando nada vai mudar. Comparar a
+# senha contra o último valor escrito por nós e bail out se for igual.
+LAST_PASS_HASH="/storage/.cache/.archr-rootpass.sha256"
+if [ -n "${ROOTPASS}" ] && [ -f "${LAST_PASS_HASH}" ]; then
+  CURRENT_HASH=$(printf '%s' "${ROOTPASS}" | sha256sum | awk '{print $1}')
+  if [ "$(cat "${LAST_PASS_HASH}" 2>/dev/null)" = "${CURRENT_HASH}" ]; then
+    exit 0
+  fi
+fi
+
 # Turn it into a usable hash
 NEW=$(cryptpw -m sha512 "${ROOTPASS}" 2>/dev/null)
 
@@ -23,6 +35,9 @@ syncthing generate --gui-user "root" --gui-password "${ROOTPASS}" >/dev/null 2>&
 
 # Save the password so we can display it in ES
 set_setting root.password "${ROOTPASS}"
+
+# Lembrar o hash da senha gravada para o short-circuit no próximo boot.
+printf '%s' "${ROOTPASS}" | sha256sum | awk '{print $1}' >"${LAST_PASS_HASH}" 2>/dev/null
 
 # Restart syncthing if it was enabled.
 SYNCSTATUS=$(get_setting syncthing.enabled)

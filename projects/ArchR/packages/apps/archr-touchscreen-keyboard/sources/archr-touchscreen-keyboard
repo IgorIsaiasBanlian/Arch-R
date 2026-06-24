@@ -4,13 +4,19 @@
 
 . /etc/profile
 
+# Em devices sem touchscreen (a maioria dos handhelds RK3326 — R33S,
+# R36S, etc.) o while loop adiante nunca executa o ramo útil mas
+# continua acordando a cada 5s para conferir as mesmas variáveis e
+# voltar a dormir. Em um device de 1 GB RAM e quad Cortex-A35 cada
+# wakeup desnecessário é overhead. Bail out cedo quando o quirk diz
+# que não há touchscreen.
+if [ "${DEVICE_HAS_TOUCHSCREEN}" != "true" ]; then
+  exit 0
+fi
+
 TSKEY=$(get_setting "archr.touchscreen-keyboard.enabled")
 if [ ! -n "${TSKEY}" ]; then
-  if [ "$DEVICE_HAS_TOUCHSCREEN" == "true" ]; then
-    set_setting "archr.touchscreen-keyboard.enabled" "1"
-  else
-    set_setting "archr.touchscreen-keyboard.enabled" "0"
-  fi
+  set_setting "archr.touchscreen-keyboard.enabled" "1"
 fi
 
 

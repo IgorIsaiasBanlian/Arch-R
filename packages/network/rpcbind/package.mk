@@ -20,5 +20,10 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_header_rpcsvc_mount_h=no \
                            --with-rpcuser=root"
 
 post_install() {
-  enable_service rpcbind.service
+  # rpcbind.service rodando idle custa ~11 MB de RAM em um device com
+  # 1 GB. O upstream já fornece rpcbind.socket com Listen :111 e
+  # /run/rpcbind.sock; habilitar só o socket entrega o mesmo
+  # comportamento funcional (mount.nfs ativa o daemon sob demanda)
+  # sem o overhead permanente quando o handheld não está usando NFS.
+  enable_service rpcbind.socket
 }
