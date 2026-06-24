@@ -36,9 +36,22 @@ post_makeinstall_target() {
   cp ${PKG_DIR}/config/mirrorlist ${INSTALL}/etc/pacman.d/mirrorlist
   cp ${PKG_DIR}/config/makepkg.conf ${INSTALL}/etc/makepkg.conf
 
-  # Create pacman state directories (symlinked to /storage at runtime)
-  mkdir -p ${INSTALL}/var/lib/pacman
-  mkdir -p ${INSTALL}/var/cache/pacman/pkg
+  # /var/lib/pacman is a symlink directly into the rw storage overlay.
+  # Earlier versions did `mkdir -p /var/lib/pacman` here and then
+  # `ln -sf /storage/.pacman/db /var/lib/pacman` in post_install, but
+  # `ln -sf TARGET LINK` when LINK is an existing directory creates
+  # LINK/$(basename TARGET) instead of replacing LINK — so we ended up
+  # with /var/lib/pacman/db as a symlink (correct destination) inside
+  # an empty real /var/lib/pacman directory in the read-only rootfs,
+  # while pacman went looking for /var/lib/pacman/local and
+  # /var/lib/pacman/sync and reported "could not find or read directory".
+  mkdir -p ${INSTALL}/var/lib
+  ln -sf /storage/.pacman/db ${INSTALL}/var/lib/pacman
+
+  # /var/cache/pacman keeps the package cache. Same shape as above.
+  mkdir -p ${INSTALL}/var/cache/pacman
+  ln -sf /storage/.pacman/cache ${INSTALL}/var/cache/pacman/pkg
+
   mkdir -p ${INSTALL}/var/log
 
   # Remove unnecessary files
@@ -54,10 +67,4 @@ post_makeinstall_target() {
 
 post_install() {
   enable_service pacman-init.service
-
-  # Create /storage symlinks for pacman mutable state
-  mkdir -p ${INSTALL}/var/lib
-  ln -sf /storage/.pacman/db ${INSTALL}/var/lib/pacman
-  mkdir -p ${INSTALL}/var/cache/pacman
-  ln -sf /storage/.pacman/cache ${INSTALL}/var/cache/pacman/pkg
 }
