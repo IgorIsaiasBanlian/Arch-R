@@ -199,17 +199,17 @@ if [ "$command" == "audio" ];then
 	# custom: don't touch the .asoundrc file
 	# any other, create the .asoundrd file
 	if [ "$mode" == "auto" ];then
-	    rm -rf /userdata/system/.asoundrc || exit 1
+	    rm -rf /storage/.asoundrc || exit 1
 	elif [ "$mode" != "custom" ];then
 	    if echo "${mode}" | grep -qE '^[0-9]*,[0-9]* '
 	    then
 		cardnb=$(echo "${mode}" | sed -e s+'^\([0-9]*\),.*$'+'\1'+)
 		devicenb=$(echo "${mode}" | sed -e s+'^[0-9]*,\([0-9]*\) .*$'+'\1'+)
-		cat > /userdata/system/.asoundrc <<EOF
+		cat > /storage/.asoundrc <<EOF
 	    pcm.!default { type plug slave { pcm "hw:${cardnb},${devicenb}" } }
 	    ctl.!default { type hw card ${cardnb} }
 EOF
-		aplay "/usr/share/sounds/Mallet.wav"
+		aplay "/usr/share/retroarch-assets/sounds/launch.ogg" 2>/dev/null || true
 	    fi
 	fi
     fi
