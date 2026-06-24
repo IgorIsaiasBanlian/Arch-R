@@ -143,9 +143,19 @@ process_subdevice() {
     # boards; several clone vendor DTBs are mislabeled with `odroidgo3`
     # compatible and previously slipped through the short-circuit, leaving
     # the overlay without GPIO fixes (= "backlight on, no image").
+    #
+    # SDCLONE: lets archr-dtbo.py know that the base DTS for this
+    # subdevice (rk3326-gameconsole-eeclone.dts) does NOT include the
+    # r3xs.dtsi `rk817-sound` default — both sound card variants ship
+    # with status="disabled". Without an explicit overlay to enable
+    # one, `aplay -l` finds no soundcards on those clones (issue #35).
+    # The audio block in archr-dtbo.py uses this flag to pick the
+    # `amplified` fallback when the vendor DTB doesn't expose enough
+    # to auto-classify between amplified / simple / spko-direct.
     local sd_prefix=""
     case "$sd" in
         original|soysauce) sd_prefix="SDORIG" ;;
+        clone)             sd_prefix="SDCLONE" ;;
     esac
 
     # Soysauce (Y3506) boards have NO external speaker amplifier on
