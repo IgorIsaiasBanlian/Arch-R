@@ -89,7 +89,7 @@ Identidade Arch vem dos 7 itens desta seção (pacman, PKGBUILD, FHS, rolling, K
 
 ### 2.1. Wirar pacman como mecanismo de update real
 
-**Status: pipeline cliente pronto (2026-06-23).** Falta gerar a primeira release no `archr-linux/archr-repo` para o sistema ter o que sincronizar.
+**Status: end-to-end vivo (2026-06-24).** Pacman cliente fala com o mirror real no GitHub e baixa pacotes assinados.
 
 - [x] **Decisão de infra: GitHub Releases como mirror único.** Sem VPS, sem `repo.arch-r.io`. Detalhes em `docs/release-policy.md`. Google Drive como backup; Cloudflare R2 fica como fallback futuro se aparecer problema concreto.
 - [x] **`archr-update` reescrito** como wrapper fino de `pacman -Syu`. 87 linhas (eram 188). Comandos: `archr-update [check|update|info]`. Channel lido de `system.cfg "updates.branch"` e refletido no mirrorlist via rewrite on-the-fly.
@@ -97,9 +97,12 @@ Identidade Arch vem dos 7 itens desta seção (pacman, PKGBUILD, FHS, rolling, K
 - [x] **`pacman-init` adaptado**: testa conectividade via `github.com` em vez de `mirror.archlinuxarm.org`, popula keyring `archr` (não mais `archlinuxarm`).
 - [x] **`archr-keyring` reformulado**: ship empty placeholders por enquanto, hooks prontos para receber o keyring real (`archr.gpg`, `archr-trusted`, `archr-revoked`) quando a chave master for gerada.
 - [x] **`scripts/repo/gen-pacman-repo`**: empacota `build.*/install_pkg/<pkg>/` em `.pkg.tar.zst`, gera `.PKGINFO`, monta `archr.db` via `repo-add`. README ao lado documenta o workflow `gh release create repo-<canal>`.
-- [ ] **Gerar a chave master GPG**: chave ArchR offline + subchave de signer. Atualizar `archr-keyring/keys/` com `archr.gpg`, `archr-trusted`, `archr-revoked`. Bloqueia o primeiro release assinado.
-- [ ] **Primeira release no `archr-linux/archr-repo`**: criar o repo no GitHub, rodar `gen-pacman-repo` em build local, publicar `repo-dev` para teste interno antes de promover para `repo-next` e `repo-stable`.
-- [ ] **CI no `archr-linux/Arch-R`** que invoque `gen-pacman-repo` após `make docker-RK3326` e publique no `archr-repo` automaticamente. GitHub Actions free tier basta.
+- [x] **Chave master GPG gerada** (2026-06-23). Ed25519 cert-only offline + signer subkey expirando 2028-06-23. Privada em cold storage; pública (`archr.gpg`, `archr-trusted`, `archr-revoked`) commitada em `archr-keyring/keys/`. Fingerprint `0CB28237 9EBB394E F380AEB9 8A762D57 06C602A1`.
+- [x] **Primeira release `repo-dev` no `archr-linux/archr-repo`** (2026-06-24). 543 assets: 535 packages `.pkg.tar.zst` + `archr.db` assinada + `archr.files` assinada + tarball duplicates. Cabe folgado no cap de 1000 assets/release do GitHub depois que dropamos o per-package sig.
+- [x] **SigLevel ajustado para `PackageOptional DatabaseRequired`** (2026-06-24). Modelo SteamOS/EndeavourOS/Arch ARM: db assinada lista SHA256 de cada package; pacman verifica hash pós-download. Atacante precisaria forjar a db, o que exige a subkey privada que está só na máquina de build.
+- [ ] **CI no `archr-linux/Arch-R`** que invoque `gen-pacman-repo` após `make docker-RK3326` e publique no `archr-repo` automaticamente. Hoje o publish é manual (1 hora corrida entre o build e o repo-add+sign+upload).
+- [ ] **Promoção `repo-dev → repo-next → repo-stable`**. Atualmente só `repo-dev` está populado. Quando a v2.0 final sair, mesma release vai pra `repo-stable` (cap 1000 não tem problema; é o mesmo conteúdo apenas com tag git diferente).
+- [ ] **Bug menor no `gen-pacman-repo`**: 5 packages tiveram a versão extraída como `..get_pkg_version.<nome>.` em vez do número real. Fix é melhorar o parser do `package.mk` (`gstreamer`, `vitaquake2-lr`). Sem impacto runtime porque os 5 pacotes não entram no `archr-core` essencial.
 
 ### 2.2. Aproximar do FHS
 
