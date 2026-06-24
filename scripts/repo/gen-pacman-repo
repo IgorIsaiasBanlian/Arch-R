@@ -74,6 +74,16 @@ build_one_pkg() {
     if [ -n "${pkgmk}" ]; then
         version="$(awk -F'"' '/^PKG_VERSION/ {print $2; exit}' "${pkgmk}")"
     fi
+    # Some package.mk files set PKG_VERSION dynamically, e.g.:
+    #   PKG_VERSION="$(get_pkg_version gstreamer)"
+    # awk pulls the unresolved shell expansion as a string, which then
+    # turns into garbage like "..get_pkg_version.gstreamer." after the
+    # charset filter. Detect any $( ... ), :- or ${ and bail to the
+    # dirname fallback below, which holds the version the build system
+    # actually substituted.
+    case "${version}" in
+        *'$('* | *'${'* ) version="" ;;
+    esac
     # Fallback: pull the suffix back out of the dirname.
     if [ -z "${version}" ]; then
         version="${dirname#${name}-}"
