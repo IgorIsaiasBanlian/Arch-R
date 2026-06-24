@@ -157,46 +157,52 @@ mount_common() {
     mount ${MOUNT_OPTIONS} ${MOUNT_TARGET} $2 2>/dev/null
     [ "$?" -eq "0" ] && ERR_ENV=0 && break
 
-    # If LABEL= or UUID= failed, try alternative methods
+    # If LABEL= or UUID= failed, resolve it ourselves.
+    #
+    # IMPORTANT: busybox's built-in volume_id CANNOT read FAT32 labels
+    # (it reports TYPE="vfat" but no LABEL), so `busybox mount LABEL=`
+    # and `busybox findfs LABEL=` both fail for the FAT /flash
+    # partition. We therefore resolve through util-linux blkid
+    # (/usr/sbin/blkid), which reads both FAT32 and ext4 labels. We walk
+    # every entry in /proc/partitions and create the /dev node with
+    # mknod when mdev hasn't yet, so resolution is independent of mdev
+    # timing, the mmcblkN enumeration order (issue #34: 2 SD cards
+    # reorder slots), and udev (absent in the initramfs).
     case "${MOUNT_TARGET}" in
       LABEL=*|UUID=*)
-        # Method 1: findfs
+        if [ "${MOUNT_TARGET#LABEL=}" != "${MOUNT_TARGET}" ]; then
+          BLK_TAG="LABEL"; BLK_WANT="${MOUNT_TARGET#LABEL=}"
+        else
+          BLK_TAG="UUID"; BLK_WANT="${MOUNT_TARGET#UUID=}"
+        fi
+        RESOLVED=""
+        while read BLK_MAJ BLK_MIN BLK_SZ BLK_NAME BLK_REST; do
+          case "${BLK_MAJ}" in ''|*[!0-9]*) continue ;; esac
+          [ -n "${BLK_NAME}" ] || continue
+          BLK_DEV="/dev/${BLK_NAME}"
+          [ -b "${BLK_DEV}" ] || /usr/bin/busybox mknod "${BLK_DEV}" b "${BLK_MAJ}" "${BLK_MIN}" 2>/dev/null
+          [ -b "${BLK_DEV}" ] || continue
+          BLK_GOT=$(/usr/sbin/blkid -s "${BLK_TAG}" -o value "${BLK_DEV}" 2>/dev/null)
+          if [ "${BLK_GOT}" = "${BLK_WANT}" ]; then
+            RESOLVED="${BLK_DEV}"
+            break
+          fi
+        done < /proc/partitions
+        if [ -n "${RESOLVED}" ]; then
+          mount ${MOUNT_OPTIONS} ${RESOLVED} $2 2>/dev/null
+          [ "$?" -eq "0" ] && ERR_ENV=0 && break
+        fi
+        # Fallbacks: busybox findfs (works for ext*) and any udev-style
+        # by-label symlink, in case the blkid scan came up empty.
         RESOLVED=$(findfs ${MOUNT_TARGET} 2>/dev/null)
         if [ -n "${RESOLVED}" ]; then
           mount ${MOUNT_OPTIONS} ${RESOLVED} $2 2>/dev/null
           [ "$?" -eq "0" ] && ERR_ENV=0 && break
         fi
-        # Method 2: scan /dev/mmcblk*p* with blkid
-        RESOLVED=""
-        for dev in /dev/mmcblk0p1 /dev/mmcblk0p2 /dev/mmcblk0p3 /dev/mmcblk1p1 /dev/mmcblk1p2 /dev/mmcblk1p3; do
-          [ -b "$dev" ] || continue
-          case "${MOUNT_TARGET}" in
-            LABEL=*)
-              WANT="${MOUNT_TARGET#LABEL=}"
-              GOT=$(blkid -s LABEL -o value "$dev" 2>/dev/null)
-              [ "$GOT" = "$WANT" ] && RESOLVED="$dev"
-              ;;
-            UUID=*)
-              WANT="${MOUNT_TARGET#UUID=}"
-              GOT=$(blkid -s UUID -o value "$dev" 2>/dev/null)
-              [ "$GOT" = "$WANT" ] && RESOLVED="$dev"
-              ;;
-          esac
-          if [ -n "${RESOLVED}" ]; then
-            mount ${MOUNT_OPTIONS} ${RESOLVED} $2 2>/dev/null
-            [ "$?" -eq "0" ] && ERR_ENV=0 && break 2
-          fi
-        done
-        # Method 3: try /dev/disk/by-label/ symlink
-        case "${MOUNT_TARGET}" in
-          LABEL=*)
-            WANT="${MOUNT_TARGET#LABEL=}"
-            if [ -e "/dev/disk/by-label/${WANT}" ]; then
-              mount ${MOUNT_OPTIONS} "/dev/disk/by-label/${WANT}" $2 2>/dev/null
-              [ "$?" -eq "0" ] && ERR_ENV=0 && break
-            fi
-            ;;
-        esac
+        if [ "${BLK_TAG}" = "LABEL" ] && [ -e "/dev/disk/by-label/${BLK_WANT}" ]; then
+          mount ${MOUNT_OPTIONS} "/dev/disk/by-label/${BLK_WANT}" $2 2>/dev/null
+          [ "$?" -eq "0" ] && ERR_ENV=0 && break
+        fi
         ;;
     esac
 
