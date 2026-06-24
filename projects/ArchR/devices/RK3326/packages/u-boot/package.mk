@@ -100,32 +100,9 @@ makeinstall_target() {
 
   find_dir_path config/stock && cp -av ${FOUND_PATH} "${INSTALL}/usr/share/bootloader/"
 
-  # Generate MIPI panel overlays
-  MIPI_GEN="${ROOT}/config/mipi-generator"
-  MIPI_OUT="${MIPI_GEN}/output"
-  if [ -x "${MIPI_GEN}/generator.sh" ]; then
-    echo "Generating MIPI panel overlays..."
-    bash "${MIPI_GEN}/generator.sh" || echo "WARNING: Panel overlay generation failed (non-fatal)"
-  fi
-
-  # Install per-SUBDEVICE panel overlays (original + clone)
-  for sd in ${SUBDEVICES}; do
-    mkdir -p "${INSTALL}/usr/share/bootloader/overlays_${sd}"
-    # First try pre-generated from mipi-generator output
-    if [ -d "${MIPI_OUT}/${sd}" ]; then
-      cp -av "${MIPI_OUT}/${sd}/"*.dtbo "${INSTALL}/usr/share/bootloader/overlays_${sd}/" 2>/dev/null || true
-    fi
-    # Then overlay with any from config dir (manual overrides)
-    if find_dir_path config/overlays_${sd}; then
-      cp -av ${FOUND_PATH}/*.dtbo "${INSTALL}/usr/share/bootloader/overlays_${sd}/" 2>/dev/null || true
-    fi
-  done
-  # Install soysauce panel overlays (included in original image)
-  if [ -d "${MIPI_OUT}/soysauce" ]; then
-    mkdir -p "${INSTALL}/usr/share/bootloader/overlays_soysauce"
-    cp -av "${MIPI_OUT}/soysauce/"*.dtbo "${INSTALL}/usr/share/bootloader/overlays_soysauce/" 2>/dev/null || true
-  fi
-
-  # Also install generic overlays dir (README, fallback)
+  # Install overlays dir. We no longer ship pre-built panel DTBOs:
+  # users generate mipi-panel.dtbo on https://arch-r.io/overlay-generator/
+  # and drop it into /flash/overlays/ themselves (the README explains
+  # this in six languages).
   find_dir_path config/overlays && cp -av ${FOUND_PATH} "${INSTALL}/usr/share/bootloader/"
 }

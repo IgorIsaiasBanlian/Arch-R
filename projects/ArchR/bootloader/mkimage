@@ -84,18 +84,6 @@ mkimage_dtb() {
         mcopy "${RELEASE_DIR}/3rdparty/bootloader/device_trees/"*.dtb ::dtbs/
       fi
       mcopy "${RELEASE_DIR}/3rdparty/bootloader/stock" ::
-      # Copy SUBDEVICE-specific panel overlays, fallback to generic
-      if [ -d "${RELEASE_DIR}/3rdparty/bootloader/overlays_${SUBDEVICE}" ]; then
-        echo "image: copying ${SUBDEVICE} panel overlays..."
-        mmd ::overlays 2>/dev/null || true
-        mcopy "${RELEASE_DIR}/3rdparty/bootloader/overlays_${SUBDEVICE}/"*.dtbo ::overlays/
-      fi
-      # Copy soysauce overlays into original image (soysauce shares ADC with original)
-      if [ "${SUBDEVICE}" = "original" ] && [ -d "${RELEASE_DIR}/3rdparty/bootloader/overlays_soysauce" ]; then
-        echo "image: copying soysauce panel overlays..."
-        mmd ::overlays/soysauce 2>/dev/null || true
-        mcopy "${RELEASE_DIR}/3rdparty/bootloader/overlays_soysauce/"*.dtbo ::overlays/soysauce/
-      fi
       ;;
     SM8550|SM8650|SM8250|SDM845)
       mcopy -s -o "${RELEASE_DIR}/3rdparty/bootloader/boot" ::
@@ -108,8 +96,10 @@ mkimage_dtb() {
       ;;
   esac
 
-  # For devices not handled above (RK3326 handles overlays in its own case)
-  if [ "$DEVICE" != "RK3326" ] && [ -d "${RELEASE_DIR}/3rdparty/bootloader/overlays" ]; then
+  # Ship the overlays/ folder (README only) for every device. Users
+  # generate their mipi-panel.dtbo on https://arch-r.io/overlay-generator/
+  # and drop it into /flash/overlays/ themselves.
+  if [ -d "${RELEASE_DIR}/3rdparty/bootloader/overlays" ]; then
     echo "image: copying device tree overlays..."
     mcopy -s "${RELEASE_DIR}/3rdparty/bootloader/overlays" ::
   fi
