@@ -19,6 +19,12 @@ makeinstall_target() {
 }
 
 post_install() {
-enable_service sixaxis@.service
+  # sixaxis@.service is a TEMPLATE — instances are spawned on demand
+  # by udev (99-sixaxis.rules sets SYSTEMD_WANTS=sixaxis@%E{DEVNAME}).
+  # Linking the bare template into multi-user.target.wants/ creates a
+  # dangling reference that systemd-analyze flags as "different name"
+  # because the .wants entry has no instance. Just install the unit
+  # file; udev does the rest.
+  :
 }
 

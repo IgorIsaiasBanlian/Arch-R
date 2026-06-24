@@ -5,6 +5,9 @@ Description=EmulationStation-with-Sway
 Requires=sway.service
 After=sway.service
 RequiresMountsFor=/storage
+# StartLimit* lives in [Unit] (see emustation.service for context).
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -14,8 +17,6 @@ ExecStart=/usr/bin/start_es.sh
 WorkingDirectory=/storage
 Restart=always
 RestartSec=2
-StartLimitIntervalSec=60
-StartLimitBurst=5
 
 [Install]
 WantedBy=archr.target

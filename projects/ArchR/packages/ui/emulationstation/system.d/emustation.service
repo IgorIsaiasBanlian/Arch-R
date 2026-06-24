@@ -3,6 +3,12 @@ Description=EmulationStation emulator frontend
 ConditionPathExists=/var/lock/start.games
 After=archr-automount.service
 RequiresMountsFor=/storage
+# StartLimitIntervalSec/StartLimitBurst must live in [Unit], not
+# [Service]; systemd silently ignored them there (systemd-analyze
+# verify warns), so a misbehaving ES could restart-flood without ever
+# tripping the burst limit.
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Environment=XDG_RUNTIME_DIR=/var/run/0-runtime-dir
@@ -15,8 +21,6 @@ KillMode=process
 TimeoutStopSec=3
 Restart=always
 RestartSec=2
-StartLimitIntervalSec=60
-StartLimitBurst=5
 
 [Install]
 WantedBy=archr.target
