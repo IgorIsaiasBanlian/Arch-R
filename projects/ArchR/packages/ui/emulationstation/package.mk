@@ -107,7 +107,10 @@ makeinstall_target() {
 EOF
   fi
 
-  ln -sf ${INSTALL}/usr/config/emulationstation/es_systems.cfg ${INSTALL}/etc/emulationstation/es_systems.cfg
+  # Symlink target must be an in-target path (/usr/config/...), not the
+  # host's ${INSTALL} build dir, otherwise the staged symlink points to
+  # the builder's filesystem and breaks on the device.
+  ln -sf /usr/config/emulationstation/es_systems.cfg ${INSTALL}/etc/emulationstation/es_systems.cfg
 
   ln -sf /storage/.cache/system_timezone ${INSTALL}/etc/timezone
 

@@ -187,5 +187,17 @@ post_makeinstall_target() {
       cp -PR bin/default/source3/utils/smbpasswd ${INSTALL}/usr/bin
 
   fi
+
+  # waf install writes Python scripts whose shebang points at the build
+  # host's python3 (TOOLCHAIN/bin/python3). Rewrite to /usr/bin/python3
+  # so they actually run on the target. samba-gpupdate is the survivor
+  # of the broad rm -rf above; protect against future ones too.
+  if [ -d ${INSTALL}/usr/sbin ]; then
+    find ${INSTALL}/usr/sbin -maxdepth 1 -type f | while read -r script; do
+      if head -c 200 "$script" 2>/dev/null | head -1 | grep -q '^#!.*python'; then
+        sed -i '1s|^#!.*python.*|#!/usr/bin/python3|' "$script"
+      fi
+    done
+  fi
 }
 

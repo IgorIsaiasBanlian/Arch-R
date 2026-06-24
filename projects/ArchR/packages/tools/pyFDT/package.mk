@@ -23,3 +23,14 @@ make_target() {
 makeinstall_target() {
   python3 setup.py install --root=${INSTALL} --prefix=/usr
 }
+
+post_makeinstall_target() {
+  # setuptools writes the build-host python3 path into entry-point
+  # shebangs, which then point at /media/.../toolchain/bin/python3 on
+  # the target and refuse to run. Rewrite to /usr/bin/python3 (the
+  # target's interpreter).
+  for s in ${INSTALL}/usr/bin/pydtc; do
+    [ -f "$s" ] || continue
+    sed -i '1s|^#!.*python.*|#!/usr/bin/python3|' "$s"
+  done
+}

@@ -174,6 +174,12 @@ post_makeinstall_target() {
         ;;
     esac
   done
+  # systemd-sysroot-fstab-check is a symlink into systemd-fstab-generator
+  # (deleted above), so it always dangles on the target. Remove the
+  # dangling link from both /usr/lib and /usr/lib32 to keep the rootfs
+  # symlink-clean.
+  safe_remove ${INSTALL}/usr/lib/systemd/systemd-sysroot-fstab-check
+  safe_remove ${INSTALL}/usr/lib32/systemd/systemd-sysroot-fstab-check
 
   # remove catalog
   safe_remove ${INSTALL}/usr/lib/systemd/catalog
@@ -277,6 +283,14 @@ post_makeinstall_target() {
 
   # journald
   ln -sf /storage/.cache/journald.conf.d ${INSTALL}/usr/lib/systemd/journald.conf.d
+
+  # legacy.conf seeds /var/log/README as a symlink to
+  # /usr/share/doc/systemd/README.logs, but ArchR doesn't ship the
+  # /usr/share/doc tree, so the README ends up dangling on every boot.
+  # Strip the line, keep the rest of the legacy rules.
+  if [ -f ${INSTALL}/usr/lib/tmpfiles.d/legacy.conf ]; then
+    sed -i '/\/var\/log\/README/d' ${INSTALL}/usr/lib/tmpfiles.d/legacy.conf
+  fi
 }
 
 post_install() {

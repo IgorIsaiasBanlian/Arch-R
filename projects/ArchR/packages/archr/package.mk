@@ -153,6 +153,11 @@ EOF
   ### Take a backup of the system configuration on shutdown
   enable_service save-sysconfig.service
 
+  ### System locale. glibc/package.mk only generates en_US.UTF-8; without
+  ### this file LANG stays empty and every shell falls back to POSIX,
+  ### which breaks UTF-8 input, pacman messages and emulator menus.
+  echo "LANG=en_US.UTF-8" > ${INSTALL}/etc/locale.conf
+
   sed -i "s#@DEVICENAME@#${DEVICE}#g" ${INSTALL}/usr/config/system/configs/system.cfg
 
   ### Defaults for non-main builds.

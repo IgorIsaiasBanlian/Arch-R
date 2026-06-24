@@ -26,6 +26,11 @@ post_makeinstall_target() {
     cp ${PKG_DIR}/config/udevil.conf ${INSTALL}/etc/udevil
     ln -sf /storage/.config/udevil.conf ${INSTALL}/etc/udevil/udevil-user-root.conf
 
+  # Seed /storage/.config/udevil.conf via the userconfig rsync. Without
+  # this copy the user-root symlink above dangles until first manual edit.
+  mkdir -p ${INSTALL}/usr/config
+    cp ${PKG_DIR}/config/udevil.conf ${INSTALL}/usr/config/
+
   mkdir -p ${INSTALL}/usr/bin
     cp -PR src/udevil ${INSTALL}/usr/bin
 

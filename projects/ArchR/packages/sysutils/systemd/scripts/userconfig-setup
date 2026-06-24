@@ -77,3 +77,11 @@ then
     ln -sf /usr/share/locale /storage/.config/emulationstation/locale
   fi
 fi
+
+### /opt/jdk is a symlink to /storage/jdk that freej2me-lr fills on first
+### launch. Older builds left a stray /storage/jdk file (0 bytes) that
+### turns the symlink into a non-directory and breaks every JDK consumer.
+### Run this saneamento every boot, not just under the .configured guard.
+if [ -e "/storage/jdk" ] && [ ! -d "/storage/jdk" ]; then
+  rm -f /storage/jdk
+fi

@@ -1,0 +1,16 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026-present ArchR
+
+# systemd already publishes LANG into its session environment, but ssh
+# logins and busybox shells do not inherit that, so they end up under
+# POSIX with empty LANG. Source the canonical /etc/locale.conf at shell
+# startup so every interactive session sees the same locale.
+
+if [ -r /etc/locale.conf ]; then
+    # shellcheck disable=SC1091
+    . /etc/locale.conf
+    export LANG
+    [ -n "${LANGUAGE}" ] && export LANGUAGE
+    [ -n "${LC_ALL}" ] && export LC_ALL
+fi

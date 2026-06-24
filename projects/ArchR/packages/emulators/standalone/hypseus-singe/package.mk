@@ -26,4 +26,10 @@ post_makeinstall_target() {
   cp -rf ${PKG_BUILD}/doc/hypinput.ini ${INSTALL}/usr/config/game/configs/hypseus/
   ln -fs /storage/.config/game/configs/hypseus/hypinput.ini ${INSTALL}/usr/share/daphne/hypinput.ini
   cp ${PKG_BUILD}/start_hypseus.sh ${INSTALL}/usr/bin
+  # CMake leaves cmake_install.cmake / CMakeCache.txt sprinkled across
+  # the install tree; they embed the host build path and are useless at
+  # runtime, so strip them.
+  find ${INSTALL}/usr/share/daphne -name 'cmake_install.cmake' -delete 2>/dev/null || true
+  find ${INSTALL}/usr/share/daphne -name 'CMakeCache.txt' -delete 2>/dev/null || true
+  find ${INSTALL}/usr/share/daphne -name 'CMakeFiles' -type d -exec rm -rf {} + 2>/dev/null || true
 }

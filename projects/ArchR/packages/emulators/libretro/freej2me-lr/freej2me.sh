@@ -15,6 +15,15 @@ fi
 JDKDEST="/opt/jdk"
 JDKNAME="zulu11.48.21-ca-jdk11.0.11"
 
+# /opt/jdk -> /storage/jdk; if anything left a non-directory there the
+# mkdir/tar steps below would fail with "Not a directory".
+if [ -L /opt/jdk ]; then
+  jdk_target=$(readlink /opt/jdk)
+  if [ -e "${jdk_target}" ] && [ ! -d "${jdk_target}" ]; then
+    rm -f "${jdk_target}"
+  fi
+fi
+
 mkdir -p ${JDKDEST}
 
 # Check if the jdk does not already exists

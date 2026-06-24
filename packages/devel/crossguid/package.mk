@@ -13,3 +13,10 @@ PKG_LONGDESC="minimal, cross platform, C++ GUID library"
 
 PKG_CMAKE_OPTS_TARGET="-DCROSSGUID_TESTS=OFF \
                        -Wno-dev"
+
+post_makeinstall_target() {
+  # crossguid is a build-time-only dependency; its CMake config files
+  # embed the host's build-dir path and serve no runtime purpose. Drop
+  # the entire share tree to keep the rootfs free of host-paths.
+  rm -rf ${INSTALL}/usr/share/crossguid
+}
