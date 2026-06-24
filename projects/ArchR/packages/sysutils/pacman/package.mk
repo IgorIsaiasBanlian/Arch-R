@@ -63,6 +63,16 @@ post_makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin
   cp ${PKG_DIR}/scripts/pacman-init ${INSTALL}/usr/bin/pacman-init
   chmod +x ${INSTALL}/usr/bin/pacman-init
+
+  # Pacman ships several bash scripts (pacman-key, makepkg, vercmp, etc.)
+  # whose shebang is built against the upstream sbindir which on Arch
+  # is /usr/sbin (with /usr/sbin -> /usr/bin via usrmerge). LibreELEC
+  # does not merge usr/sbin, so /usr/sbin/bash does not exist and every
+  # one of these scripts dies with "bad interpreter: No such file or
+  # directory". Rewrite the shebangs to /usr/bin/bash where bash
+  # actually lives in our rootfs.
+  find ${INSTALL}/usr -type f -exec \
+    sed -i '1s|^#!/usr/sbin/bash$|#!/usr/bin/bash|' {} +
 }
 
 post_install() {
