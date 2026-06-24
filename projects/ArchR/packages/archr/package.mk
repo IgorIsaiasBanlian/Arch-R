@@ -153,6 +153,12 @@ EOF
   ### Take a backup of the system configuration on shutdown
   enable_service save-sysconfig.service
 
+  ### Expose PortMaster compat libs (/usr/lib/compat) in the default
+  ### linker path. No ld.so.cache ships, so love_11.5 et al. fail on
+  ### libtheoradec.so.1 unless it is symlinked into /usr/lib (see
+  ### docs/PortMaster_CFW.md and the archr-compat-symlinks script).
+  enable_service archr-compat-libs.service
+
   ### System locale. glibc/package.mk only generates en_US.UTF-8; without
   ### this file LANG stays empty and every shell falls back to POSIX,
   ### which breaks UTF-8 input, pacman messages and emulator menus.

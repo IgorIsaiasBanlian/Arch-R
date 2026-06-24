@@ -1,0 +1,45 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0
+#
+# archr-compat-symlinks: expose the PortMaster compat libraries
+# (/usr/lib/compat/*.so*, the older Debian-11-era SONAMEs that ports and
+# their runtimes link against) in the default linker search path.
+#
+# ArchR keeps these libs under /usr/lib/compat to stay out of the base
+# system, but the image ships no ld.so.cache: the dynamic linker only
+# searches the hardcoded /usr/lib + /lib plus LD_LIBRARY_PATH, so
+# /usr/lib/compat is invisible to anything that does not explicitly
+# prepend it. PortMaster runtimes such as love_11.5 link
+# libtheoradec.so.1 as a normal system library and die with
+# "cannot open shared object file: libtheoradec.so.1" when it lives only
+# under compat. docs/PortMaster_CFW.md is explicit: "add these older .so
+# symlinks alongside [the newer versions]" and "Keep [libtheoradec] at
+# standard versions."
+#
+# We therefore symlink each compat lib into /usr/lib, but ONLY when the
+# base system does not already provide that exact SONAME, so we never
+# shadow a real system library (e.g. libogg.so.0, libvorbis.so.0).
+#
+# Idempotent: the `[ -e ]` guard skips anything already present, so it is
+# safe to run every boot. The rootfs is writable ext4, so the links
+# persist and later boots are no-ops.
+
+link_dir() {
+  local compat="$1" libdir="$2" n=0 f base
+  [ -d "${compat}" ] || return 0
+  for f in "${compat}"/*.so*; do
+    [ -e "${f}" ] || continue
+    base="${f##*/}"
+    if [ ! -e "${libdir}/${base}" ]; then
+      ln -sf "compat/${base}" "${libdir}/${base}" && n=$((n + 1))
+    fi
+  done
+  echo "${n}"
+}
+
+created=$(link_dir /usr/lib/compat /usr/lib)
+# armhf / 32-bit ports use the lib32 tree when present.
+created32=$(link_dir /usr/lib32/compat /usr/lib32)
+
+echo "archr-compat-symlinks: linked ${created:-0} (lib) + ${created32:-0} (lib32) compat SONAMEs into the default path"
+exit 0
