@@ -11,13 +11,22 @@ CURRENT=$(awk -F: '/^root/{print $2}' /storage/.cache/shadow)
 
 # Short-circuit no-op runs. 007-rootpw chama setrootpass a cada boot
 # com a senha já gravada — cryptpw sha512 + smbpasswd + syncthing
-# generate juntos custam ~6s mesmo quando nada vai mudar. Comparar a
-# senha contra o último valor escrito por nós e bail out se for igual.
-LAST_PASS_HASH="/storage/.cache/.archr-rootpass.sha256"
-if [ -n "${ROOTPASS}" ] && [ -f "${LAST_PASS_HASH}" ]; then
-  CURRENT_HASH=$(printf '%s' "${ROOTPASS}" | sha256sum | awk '{print $1}')
-  if [ "$(cat "${LAST_PASS_HASH}" 2>/dev/null)" = "${CURRENT_HASH}" ]; then
-    exit 0
+# generate juntos custam ~6s mesmo quando nada vai mudar.
+#
+# A comparação reusa o próprio hash sha512crypt já em /storage/.cache/
+# shadow: cryptpw -m sha512 -S "<sal>" "<senha>" reproduz o hash dado o
+# mesmo salt, então se o resultado bater com CURRENT a senha não mudou.
+# Isso evita escrever qualquer fingerprint adicional em disco — o
+# único hash de senha permanece o sha512crypt salted que já existia.
+if [ -n "${ROOTPASS}" ] && [ -n "${CURRENT}" ]; then
+  # sha512crypt: $6$<salt>$<hash>. O salt é o campo entre $6$ e o
+  # próximo $; awk extrai esse fragmento.
+  SALT=$(printf '%s\n' "${CURRENT}" | awk -F'$' '/^\$6\$/ {print $3}')
+  if [ -n "${SALT}" ]; then
+    RECOMPUTED=$(cryptpw -m sha512 -S "${SALT}" "${ROOTPASS}" 2>/dev/null)
+    if [ "${RECOMPUTED}" = "${CURRENT}" ]; then
+      exit 0
+    fi
   fi
 fi
 
@@ -35,9 +44,6 @@ syncthing generate --gui-user "root" --gui-password "${ROOTPASS}" >/dev/null 2>&
 
 # Save the password so we can display it in ES
 set_setting root.password "${ROOTPASS}"
-
-# Lembrar o hash da senha gravada para o short-circuit no próximo boot.
-printf '%s' "${ROOTPASS}" | sha256sum | awk '{print $1}' >"${LAST_PASS_HASH}" 2>/dev/null
 
 # Restart syncthing if it was enabled.
 SYNCSTATUS=$(get_setting syncthing.enabled)
