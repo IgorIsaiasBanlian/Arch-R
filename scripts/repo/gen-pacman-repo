@@ -123,9 +123,12 @@ EOF
     )
     rm -f "${pkginfo}"
 
-    if [ -n "${SIGNER}" ]; then
-        gpg --batch --yes --detach-sign --use-agent --local-user "${SIGNER}" "${outfile}"
-    fi
+    # Per-package signing is intentionally NOT done here. The repo db
+    # carries the SHA256 of every pkg.tar.zst and is itself GPG-signed,
+    # which gives pacman an unbroken trust chain without doubling the
+    # asset count on GitHub Releases (1000-per-release cap).
+    # The signer is still passed to repo-add below so the db gets its
+    # own .sig and trust flows from there.
 
     echo "  + ${name} ${version}-${pkgrel}"
 }
