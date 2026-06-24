@@ -2,7 +2,7 @@
 # Copyright (C) 2026-present ArchR (https://github.com/archr-linux/Arch-R)
 
 PKG_NAME="RTL8188EUS"
-PKG_VERSION="ec90af2b3f2f7d2956c7c25d0bbeb536e9ed5f9d"
+PKG_VERSION="af3bf004458f76b7aec33e9ba552cd382ed1f5c3"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/aircrack-ng/rtl8188eus"
 PKG_URL="${PKG_SITE}.git"

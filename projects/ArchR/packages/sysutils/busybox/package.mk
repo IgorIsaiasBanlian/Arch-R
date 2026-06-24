@@ -210,6 +210,17 @@ makeinstall_init() {
 
   mkdir -p ${INSTALL}/usr/sbin
     ln -sf /usr/bin/busybox ${INSTALL}/usr/sbin/blockdev
+    # The init script in scripts/init calls `mount`, `umount`, and
+    # `findfs` by bare name (not `busybox mount`). All three applets
+    # are compiled into the init busybox (CONFIG_MOUNT/UMOUNT/FINDFS
+    # in config/busybox-init.conf), but without symlinks they cannot
+    # be invoked at all: mount_common() and findfs-based resolution
+    # silently fail every loop iteration and the user sees
+    # "Unable to find LABEL=..., powering off" after 15s of retries.
+    # This is what bit issue #34's LABEL= boot.ini change.
+    ln -sf /usr/bin/busybox ${INSTALL}/usr/bin/mount
+    ln -sf /usr/bin/busybox ${INSTALL}/usr/bin/umount
+    ln -sf /usr/bin/busybox ${INSTALL}/usr/sbin/findfs
 
   mkdir -p ${INSTALL}/etc
     touch ${INSTALL}/etc/fstab

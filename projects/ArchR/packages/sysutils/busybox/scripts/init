@@ -8,6 +8,12 @@
 # Copyright (C) 2018-present Team CoreELEC (https://coreelec.org)
 # Copyright (C) 2023 JELOS (https://github.com/JustEnoughLinuxOS)
 
+# Explicit PATH so the bare-name `mount`, `umount`, `findfs`, `blkid`
+# calls in mount_common() always resolve. /usr/sbin is where util-linux
+# blkid lives; /usr/bin is where the busybox-applet symlinks for the
+# other three live (see makeinstall_init in busybox/package.mk).
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+
 # create directories
 /usr/bin/busybox mkdir -p /dev
 /usr/bin/busybox mkdir -p /proc
