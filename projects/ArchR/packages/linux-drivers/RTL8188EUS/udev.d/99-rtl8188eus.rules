@@ -1,0 +1,36 @@
+# Force the out-of-tree r8188eu driver for RTL8188EUS dongles, instead
+# of the in-tree rtl8xxxu (which scans but can't complete WPA2 4-way
+# handshake on this chip — see archr-linux/Arch-R#19).
+#
+# rtl8xxxu is loaded for many other RTL chips and we don't want to
+# blacklist it globally. Instead, this rule catches the 8188EUS USB
+# IDs at hotplug time, unbinds rtl8xxxu from the interface, and
+# (re)loads 8188eu.
+#
+# Known RTL8188EUS USB IDs (vendor:product):
+#   0bda:0179  Realtek RTL8188EUS Wireless Adapter
+#   0bda:8179  Realtek RTL8188EUS Wireless Adapter (most common)
+#   0bda:8189  Realtek RTL8188EUS / "TP-Link TL-WN722N v3"
+#   7392:7811  Edimax EW-7811Un (RTL8188EUS rebadge)
+#   056e:4008  Elecom WDC-150SU2M (RTL8188EUS rebadge)
+
+ACTION!="add", GOTO="rtl8188eus_end"
+SUBSYSTEM!="usb", GOTO="rtl8188eus_end"
+ENV{DEVTYPE}!="usb_device", GOTO="rtl8188eus_end"
+
+ATTR{idVendor}=="0bda", ATTR{idProduct}=="0179", GOTO="rtl8188eus_swap"
+ATTR{idVendor}=="0bda", ATTR{idProduct}=="8179", GOTO="rtl8188eus_swap"
+ATTR{idVendor}=="0bda", ATTR{idProduct}=="8189", GOTO="rtl8188eus_swap"
+ATTR{idVendor}=="7392", ATTR{idProduct}=="7811", GOTO="rtl8188eus_swap"
+ATTR{idVendor}=="056e", ATTR{idProduct}=="4008", GOTO="rtl8188eus_swap"
+GOTO="rtl8188eus_end"
+
+LABEL="rtl8188eus_swap"
+# Unbind apenas a interface USB específica do rtl8xxxu (não tira o
+# módulo do kernel — outros dongles RTL podem estar conectados ao
+# mesmo tempo); depois carrega 8188eu, que vai bindar pela alias
+# table. ${BUSNUM} e ${DEVNUM} são fornecidos por udev e identificam
+# o device USB sem ambiguidade.
+RUN+="/usr/bin/sh -c 'busid=$(basename %p); for drv in /sys/bus/usb/drivers/rtl8xxxu; do [ -e \"$drv/$busid\" ] && echo \"$busid\" > \"$drv/unbind\" 2>/dev/null; done; modprobe 8188eu 2>/dev/null'"
+
+LABEL="rtl8188eus_end"
