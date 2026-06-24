@@ -1,6 +1,10 @@
 [Unit]
 Description=ArchR user autostart script
-Before=emustation.service weston.service
+# weston.service não existe em ArchR (UI é via sway.service); mantê-lo
+# em Before= mostrava o weston como "not-found inactive". sway.service
+# já está coberto pelo After=graphical.target abaixo (sway é o
+# display-manager.service do graphical.target).
+Before=emustation.service
 After=network.target graphical.target userconfig.service
 
 [Service]

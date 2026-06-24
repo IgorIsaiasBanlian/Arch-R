@@ -2,7 +2,10 @@
 Description=Setup User config dir
 DefaultDependencies=no
 After=systemd-tmpfiles-setup.service storage.mount
-Before=archr-automount.service autostart.service
+# autostart.service é nome herdado do JELOS; em ArchR a unit real é
+# archr-autostart.service. Sem o prefixo o Before= é ignorado e
+# userconfig-setup corria paralelo aos scripts de autostart.
+Before=archr-automount.service archr-autostart.service
 RequiresMountsFor=/storage
 
 [Service]

@@ -1,8 +1,13 @@
 [Unit]
 Description=Xorg Server
-Before=graphical.target kodi.service
+# kodi.service não existe em ArchR; o ordering Before= silenciosamente
+# colapsava para Before=graphical.target. StartLimitInterval (alias
+# antigo) precisa ficar em [Unit] para fazer efeito, e o canônico é
+# StartLimitIntervalSec.
+Before=graphical.target
 After=multi-user.target
 ConditionKernelCommandLine=!installer
+StartLimitIntervalSec=0
 
 [Service]
 Type=notify
@@ -10,7 +15,6 @@ EnvironmentFile=-/run/archr/debug/xorg.conf
 ExecStart=/usr/bin/xorg-launch -nolisten tcp vt01 $XORG_DEBUG
 Restart=always
 RestartSec=2
-StartLimitInterval=0
 
 [Install]
 WantedBy=graphical.target

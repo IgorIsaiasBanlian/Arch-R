@@ -6,7 +6,7 @@ Before=network.target multi-user.target shutdown.target
 After=dbus.service network-base.service
 Wants=network.target
 ConditionPathExists=!/dev/.kernel_ipconfig
-
+StartLimitIntervalSec=0
 [Service]
 Type=dbus
 BusName=net.connman
@@ -15,7 +15,6 @@ EnvironmentFile=-/run/archr/debug/connman.conf
 ExecStart=/bin/sh -c ". /usr/lib/connman/connman-setup; exec /usr/sbin/connmand -nr $CONNMAN_MAIN $CONNMAN_DEBUG"
 StandardOutput=null
 RestartSec=2
-StartLimitInterval=0
 
 [Install]
 WantedBy=multi-user.target

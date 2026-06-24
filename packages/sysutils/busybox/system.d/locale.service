@@ -1,8 +1,11 @@
 [Unit]
 Description=Compile locale definition files
 ConditionPathExists=!/storage/.cache/locpath
-ConditionPathExists=!/storage/.kodi/addons/service.locale/locpath
-Before=kodi.service
+# /storage/.kodi/... era checado para fugir do locale do Kodi quando o
+# usuário tinha o addon service.locale instalado. ArchR não embarca
+# Kodi, então a verificação extra só polui o systemd-analyze; basta o
+# guard de /storage/.cache/locpath para evitar recompilar a cada boot.
+Before=archr.target
 
 [Service]
 Type=oneshot

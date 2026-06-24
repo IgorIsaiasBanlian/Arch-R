@@ -66,4 +66,12 @@ fi
 post_makeinstall_target() {
   rm -rf ${INSTALL}/var/cache/xkb
 
+  # xorg-configure@.service (shipped via system.d/) expects
+  # /usr/lib/xorg/xorg-configure to exist. The helper script is in
+  # scripts/ but the build system doesn't auto-install scripts/ for
+  # this package. Drop it in place so ExecStart resolves whenever
+  # xorg.service pulls it in (non-wayland boards / xorg fallback).
+  mkdir -p ${INSTALL}/usr/lib/xorg
+  cp ${PKG_DIR}/scripts/xorg-configure ${INSTALL}/usr/lib/xorg/xorg-configure
+  chmod 0755 ${INSTALL}/usr/lib/xorg/xorg-configure
 }

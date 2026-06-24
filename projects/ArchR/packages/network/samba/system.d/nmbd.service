@@ -1,11 +1,14 @@
 [Unit]
 Description=Samba NMB Daemon
-Wants=network-online.target samba-config.service
-After=network-online.target samba-config.service
+# samba-config.service não existe no override ArchR (substituído pelo
+# daemons/002-samba que cria /run/samba/smb.conf via ln -s). Mantê-lo
+# em Wants= aparecia como not-found no systemctl, então removido.
+Wants=network-online.target
+After=network-online.target
 RequiresMountsFor=/storage
 ConditionPathExists=!/var/lib/archr/services/samba.disabled
 ConditionPathExists=/run/samba/smb.conf
-
+StartLimitIntervalSec=0
 [Service]
 Type=forking
 PIDFile=/run/samba/nmbd.pid
@@ -14,7 +17,6 @@ ExecReload=/bin/kill -HUP $MAINPID
 TimeoutStopSec=1s
 Restart=always
 RestartSec=2
-StartLimitInterval=0
 
 [Install]
 WantedBy=multi-user.target

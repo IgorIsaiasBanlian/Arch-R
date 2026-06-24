@@ -2,9 +2,8 @@
 Description=Samba Configuration
 DefaultDependencies=false
 After=basic.target
-
+StartLimitIntervalSec=0
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/usr/lib/samba/samba-config
-StartLimitInterval=0

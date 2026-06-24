@@ -5,7 +5,7 @@ After=network-online.target nmbd.service avahi-daemon.service
 RequiresMountsFor=/storage
 ConditionPathExists=!/var/lib/archr/services/samba.disabled
 ConditionPathExists=/run/samba/smb.conf
-
+StartLimitIntervalSec=0
 [Service]
 Type=forking
 PIDFile=/run/samba/smbd.pid
@@ -15,7 +15,6 @@ ExecReload=/bin/kill -HUP $MAINPID
 TimeoutStopSec=1s
 Restart=always
 RestartSec=2
-StartLimitInterval=0
 
 [Install]
 WantedBy=multi-user.target

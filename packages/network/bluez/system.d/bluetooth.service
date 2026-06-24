@@ -4,7 +4,7 @@ After=syslog.target bluetooth-defaults.service
 Requires=bluetooth-defaults.service
 
 ConditionPathExists=/storage/.cache/services/bluez.conf
-
+StartLimitIntervalSec=0
 [Service]
 NotifyAccess=main
 EnvironmentFile=/storage/.cache/services/bluez.conf
@@ -15,7 +15,6 @@ LimitNPROC=1
 TimeoutStopSec=1s
 Restart=on-failure
 RestartSec=2
-StartLimitInterval=0
 
 [Install]
 WantedBy=bluetooth.target

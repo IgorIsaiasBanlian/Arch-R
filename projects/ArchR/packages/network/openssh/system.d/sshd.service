@@ -4,7 +4,7 @@ After=network.target
 RequiresMountsFor=/storage
 ConditionKernelCommandLine=|ssh
 ConditionPathExists=|/var/lib/archr/services/sshd.conf
-
+StartLimitIntervalSec=0
 [Service]
 Restart=on-failure
 EnvironmentFile=-/var/lib/archr/services/sshd.conf
@@ -16,7 +16,6 @@ ExecStart=/usr/sbin/sshd -D $SSH_ARGS
 ExecReload=/bin/kill -HUP $MAINPID
 TimeoutStopSec=1s
 RestartSec=2
-StartLimitInterval=0
 
 [Install]
 WantedBy=multi-user.target

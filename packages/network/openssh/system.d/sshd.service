@@ -3,7 +3,7 @@ Description=OpenSSH server daemon
 After=network.target
 ConditionKernelCommandLine=|ssh
 ConditionPathExists=|/storage/.cache/services/sshd.conf
-
+StartLimitIntervalSec=0
 [Service]
 Restart=on-failure
 EnvironmentFile=-/storage/.cache/services/sshd.conf
@@ -12,7 +12,6 @@ ExecStart=/usr/sbin/sshd -D $SSH_ARGS
 ExecReload=/bin/kill -HUP $MAINPID
 TimeoutStopSec=1s
 RestartSec=2
-StartLimitInterval=0
 
 [Install]
 WantedBy=multi-user.target

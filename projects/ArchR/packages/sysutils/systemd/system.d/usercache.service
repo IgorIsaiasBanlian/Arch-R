@@ -2,7 +2,11 @@
 Description=Setup User cache dir
 DefaultDependencies=no
 After=systemd-tmpfiles-setup.service storage.mount
-Before=automount.service autostart.service
+# ArchR prefixou as unidades reais com archr- (automount.service e
+# autostart.service são nomes herdados do JELOS que ArchR não embarca);
+# sem o prefixo o ordering Before= não casa, e o cache setup corria
+# concorrente com os mounts.
+Before=archr-automount.service archr-autostart.service
 RequiresMountsFor=/storage
 
 [Service]

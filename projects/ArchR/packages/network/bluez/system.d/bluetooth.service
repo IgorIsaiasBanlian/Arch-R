@@ -1,7 +1,7 @@
 [Unit]
 Description=Bluetooth service
 After=syslog.target
-
+StartLimitIntervalSec=0
 [Service]
 Type=dbus
 BusName=org.bluez
@@ -15,7 +15,6 @@ LimitNPROC=1
 TimeoutStopSec=1s
 Restart=on-failure
 RestartSec=2
-StartLimitInterval=0
 
 [Install]
 WantedBy=bluetooth.target

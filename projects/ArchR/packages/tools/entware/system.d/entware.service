@@ -1,7 +1,10 @@
 [Unit]
 Description=Entware service
 After=systemd-tmpfiles-setup.service network-online.target
-Before=kodi.service
+# Before=archr.target era para garantir que Entware estivesse pronto
+# antes do Kodi consumir os pacotes /opt. ArchR não embarca Kodi, então
+# Before= é equivalente a archr.target (alvo de inicialização da UI).
+Before=archr.target
 Requires=network-online.target
 ConditionPathExists=/opt/etc/init.d/rc.unslung
 

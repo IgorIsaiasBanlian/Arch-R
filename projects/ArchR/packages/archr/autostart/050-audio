@@ -46,6 +46,10 @@ fi
 /usr/bin/volume ${VOLUME}
 
 ### Run quantum audio hack if exists
-if [ -n "/usr/sbin/quantum" ]; then
+# Original used [ -n "/usr/sbin/quantum" ] which tests if a non-empty
+# string is non-empty (always true), then tried to execute a binary
+# that doesn't ship on most boards. The intended test is "does the
+# helper exist and is it executable".
+if [ -x /usr/sbin/quantum ]; then
   /usr/sbin/quantum
 fi

@@ -82,6 +82,10 @@ post_makeinstall_target() {
   fi
   rm -f ${INSTALL}/usr/share/dbus-1/system-services/org.freedesktop.Avahi.service
   rm -f ${INSTALL}/usr/sbin/avahi-dnsconfd
+  # avahi-dnsconfd.service installed automatically with the upstream
+  # service tree, but we strip the binary above — drop the now-orphan
+  # unit so systemd doesn't keep an ExecStart pointing at nowhere.
+  rm -f ${INSTALL}/usr/lib/systemd/system/avahi-dnsconfd.service
   rm -f ${INSTALL}/usr/bin/avahi-bookmarks
   rm -f ${INSTALL}/usr/bin/avahi-publish*
   rm -f ${INSTALL}/usr/bin/avahi-resolve*

@@ -35,6 +35,14 @@ makeinstall_target() {
   fi
   chmod 0755 ${INSTALL}/usr/bin/*
 
+  # video.service runs /usr/bin/video_sense which only ships for a few
+  # devices (RK3399 / RK3566 / S922X). When the binary isn't installed
+  # the unit becomes orphan (ExecStart pointing at nowhere). Drop the
+  # unit on devices without the helper so systemd-analyze stays clean.
+  if [ ! -f ${INSTALL}/usr/bin/video_sense ]; then
+    rm -f ${INSTALL}/usr/lib/systemd/system/video.service
+  fi
+
   mkdir -p ${INSTALL}/usr/config
   cp ${PKG_DIR}/sources/config/fancontrol.conf ${INSTALL}/usr/config/fancontrol.conf.sample
 }
