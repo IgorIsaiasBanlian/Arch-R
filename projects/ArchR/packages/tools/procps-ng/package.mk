@@ -3,11 +3,14 @@
 
 . ${ROOT}/packages/tools/procps-ng/package.mk
 
-PKG_MAKE_OPTS_TARGET="src/free src/top/top src/ps/pscommand library/libproc2.la library/libproc2.pc"
+PKG_MAKE_OPTS_TARGET="src/free src/vmstat src/top/top src/ps/pscommand library/libproc2.la library/libproc2.pc"
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin
     cp -P ${PKG_BUILD}/.${TARGET_NAME}/src/free ${INSTALL}/usr/bin
+    # vmstat: memory-pressure monitoring, a PortMaster_CFW.md nice-to-have
+    # dev tool. procps-ng ships the source; just build+install the binary.
+    cp -P ${PKG_BUILD}/.${TARGET_NAME}/src/vmstat ${INSTALL}/usr/bin
     cp -P ${PKG_BUILD}/.${TARGET_NAME}/src/top/top ${INSTALL}/usr/bin
     cp -P ${PKG_BUILD}/.${TARGET_NAME}/src/ps/pscommand ${INSTALL}/usr/bin/ps
 

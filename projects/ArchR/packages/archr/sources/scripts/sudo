@@ -1,0 +1,40 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0
+#
+# sudo shim. ArchR is a single-user handheld where everything already
+# runs as root, so there is no privilege boundary to cross. PortMaster's
+# control.txt sets ESUDO="" when no real sudo is found and ports that use
+# "$ESUDO" work fine, but docs/PortMaster_CFW.md lists sudo/doas as
+# REQUIRED and a handful of ports (and third-party scripts) call `sudo`
+# directly. This shim satisfies them: it strips sudo's own options and
+# execs the requested command unchanged.
+#
+# Pattern follows ROCKNIX/dArkOS, which ship the same root-context shim.
+
+# No arguments -> behave like `sudo` with nothing to do.
+[ $# -eq 0 ] && exit 0
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    # Options that take a separate argument.
+    -u|-g|-p|-C|-r|-t|-U|-h|--user|--group|--prompt|--close-from|--role|--type|--other-user|--host)
+      shift 2
+      ;;
+    # `--` ends option processing; the command follows.
+    --)
+      shift
+      break
+      ;;
+    # --opt=value forms and any other long/short flag: drop and continue.
+    --*=*|--*|-*)
+      shift
+      ;;
+    # First non-option token is the command to run.
+    *)
+      break
+      ;;
+  esac
+done
+
+[ $# -eq 0 ] && exit 0
+exec "$@"
