@@ -14,8 +14,11 @@ case "${DEVICE}" in
     ;;
 esac
 
-# ltrace nao foi adicionado porque o upstream esta abandonado desde
-# 0.7.3 (2013), nao tem suporte estavel a aarch64 e os mantenedores
-# do Debian/Alpine reportam falhas com glibc moderna. Ports que
-# precisem de tracing de symbol-level devem usar gdb (presente) ou
-# perf trace.
+# ltrace (PortMaster_CFW.md section 10 nice-to-have) NAO foi adicionado:
+# o upstream 0.7.3 (2013) esta abandonado e o fork mantido
+# (gitlab.com/cespedes/ltrace) foi build-testado no toolchain do ArchR
+# em 2026-06 e falha no autoreconf (configure.ac referencia config/m4
+# inexistente no checkout; aclocal aborta). Sem suporte estavel a
+# aarch64 + glibc moderna. Ports que precisem de tracing de symbol-level
+# devem usar gdb (presente) ou perf trace (perf presente). Este e o unico
+# item nice-to-have do guia intencionalmente ausente.
