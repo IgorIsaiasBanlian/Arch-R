@@ -12,11 +12,28 @@ fi
 export QUIRK_DEVICE="$(echo ${QUIRK_DEVICE} | sed -e "s#[/]#-#g")"
 
 info_quirks() {
-  for QUIRK in /usr/lib/autostart/quirks/platforms/"${HW_DEVICE}"/info.d/${1}/* \
-               /usr/lib/autostart/quirks/devices/"${QUIRK_DEVICE}"/info.d/${1}/*
-  do
-    "${QUIRK}" 2>/dev/null
+  # ${1} comes from the caller (the section name); when called with no
+  # argument the glob would collapse to "info.d//*" and bash leaves
+  # the literal pattern in place, then tries to execute it as a
+  # command (exit 127). Bail out early when no section is requested,
+  # and use shopt -s nullglob locally so a non-matching pattern
+  # expands to nothing instead of the literal string. QUIRK_DEVICE
+  # carries spaces ("Game Console R36S"), so the dirs are quoted in
+  # the loop body to avoid word-splitting.
+  [ -n "${1}" ] || return 0
+  local section="${1}"
+  local dirs=(
+    "/usr/lib/autostart/quirks/platforms/${HW_DEVICE}/info.d/${section}"
+    "/usr/lib/autostart/quirks/devices/${QUIRK_DEVICE}/info.d/${section}"
+  )
+  shopt -s nullglob
+  for dir in "${dirs[@]}"; do
+    for QUIRK in "${dir}"/*; do
+      [ -x "${QUIRK}" ] || continue
+      "${QUIRK}" 2>/dev/null
+    done
   done
+  shopt -u nullglob
 }
 
 ### short version (for osd)
@@ -104,7 +121,16 @@ esac
 
 echo "SYSTEM INFORMATION:"
 echo "DEVICE: ${QUIRK_DEVICE}"
-echo "OPERATING SYSTEM: ${OS_NAME}"
+echo "OPERATING SYSTEM: ${OS_NAME} Linux"
+# ID_LIKE in /etc/os-release tags ArchR as part of the arch family;
+# expose it so users know which package conventions apply (pacman,
+# AUR-style PKGBUILDs, etc.) without having to cat /etc/os-release.
+# Title-case the value (ID_LIKE is always lowercase per the spec).
+DISTRO_BASE=$(awk -F= '/^ID_LIKE=/ {gsub(/"/, "", $2); print $2; exit}' /etc/os-release 2>/dev/null)
+if [ -n "${DISTRO_BASE}" ]; then
+    DISTRO_BASE_TITLE="$(echo "${DISTRO_BASE}" | awk '{for (i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)}1')"
+    echo "DISTRO FAMILY: ${DISTRO_BASE_TITLE} Linux"
+fi
 echo "VERSION: ${OS_VERSION} (${OS_BUILD})"
 echo "BUILD ID: ${BUILD_ID:0:7} (${BUILD_BRANCH})"
 echo "KERNEL: ${V_SYSTEM} ($(uname -m))"
@@ -112,8 +138,16 @@ echo "NETWORK INFORMATION:"
 echo "HOST NAME: ${host}"
 echo "IP ADDRESS: ${ip}"
 echo "DISK SPACE:"
-echo "/storage/games-internal: $(df -h /storage/games-internal | awk '/dev/ {print $3"/"$2" ("$5")"}')"
-echo "/storage/games-external: $(df -h /storage/games-external | awk '/dev/ {print $3"/"$2" ("$5")"}')"
+# games-internal lives on /storage. games-external is only a separate
+# device when an SD card is plugged in and merged storage is on; if
+# both resolve to the same filesystem just show one entry to avoid the
+# UI repeating the identical line twice.
+INT_DEV=$(df -P /storage/games-internal 2>/dev/null | awk 'NR==2 {print $1}')
+EXT_DEV=$(df -P /storage/games-external 2>/dev/null | awk 'NR==2 {print $1}')
+echo "INTERNAL: $(df -h /storage/games-internal | awk '/dev/ {print $3"/"$2" ("$5")"}')"
+if [ -n "${EXT_DEV}" ] && [ "${EXT_DEV}" != "${INT_DEV}" ]; then
+    echo "EXTERNAL: $(df -h /storage/games-external | awk '/dev/ {print $3"/"$2" ("$5")"}')"
+fi
 
 if test -n "${BATT}"
 then
@@ -174,11 +208,28 @@ if [ -n "$GPUCUR" ]; then
   if [ -n "${DEVICE_GPU_TEMP_SENSOR}" ]; then
     GTEMPE=$(awk '{total += $1; count++} END {printf "%d", total/count/1000}' ${DEVICE_GPU_TEMP_SENSOR})
     if [ -n "${GTEMPE}" ]; then
-    echo "GPU TEMPERATURE: ${GTEMPE}°"
+      echo "GPU TEMPERATURE: ${GTEMPE}°"
+    fi
   fi
-fi
   echo "GPU CURRENT FREQUENCY: ${GPUCUR} MHz"
   echo "GPU MAXIMUM FREQUENCY: ${GPUMAX} MHz"
+  # Mesa version probed from the libgallium-X.Y.Z.so soname (more
+  # reliable than parsing /usr/share/doc/mesa* which we don't ship).
+  MESA_LIB=$(ls /usr/lib/libgallium-*.so 2>/dev/null | head -1)
+  if [ -n "${MESA_LIB}" ]; then
+    MESA_VER="${MESA_LIB##*libgallium-}"
+    MESA_VER="${MESA_VER%.so}"
+    echo "MESA VERSION: ${MESA_VER}"
+  fi
+  # Active GPU driver (panfrost vs mali/legacy). lsmod tells us what
+  # the kernel actually loaded; the file in /storage/.cache flips the
+  # userspace blob set on next boot, but only the kernel side is
+  # authoritative right now.
+  if lsmod 2>/dev/null | grep -q '^panfrost'; then
+    echo "GPU DRIVER: panfrost (Mesa)"
+  elif lsmod 2>/dev/null | grep -q '^mali_kbase'; then
+    echo "GPU DRIVER: mali_kbase (legacy blob)"
+  fi
 fi
 echo "RAM INFORMATION:"
 echo "RAM AVAILABLE: ${MEMAV} MB"

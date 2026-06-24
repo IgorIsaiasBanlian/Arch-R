@@ -58,13 +58,21 @@ fi
 ### attributable in /var/log/boot.log; the trace_step marker for slow
 ### debugging picks the LAST-launched script (good enough — if a quirk
 ### hangs we want to know what's still running, not the entry order).
-QUIRK_DIRS=""
-[ -d "/usr/lib/autostart/quirks/platforms/${HW_DEVICE}" ] && QUIRK_DIRS+=" /usr/lib/autostart/quirks/platforms/${HW_DEVICE}"
-[ -d "/usr/lib/autostart/quirks/devices/${QUIRK_DEVICE}"  ] && QUIRK_DIRS+=" /usr/lib/autostart/quirks/devices/${QUIRK_DEVICE}"
+QUIRK_DIRS=()
+[ -d "/usr/lib/autostart/quirks/platforms/${HW_DEVICE}" ] && QUIRK_DIRS+=("/usr/lib/autostart/quirks/platforms/${HW_DEVICE}")
+[ -d "/usr/lib/autostart/quirks/devices/${QUIRK_DEVICE}" ] && QUIRK_DIRS+=("/usr/lib/autostart/quirks/devices/${QUIRK_DEVICE}")
 
-if [ -n "${QUIRK_DIRS}" ]; then
+# QUIRK_DEVICE comes from /sys/firmware/devicetree/base/model and usually
+# carries spaces ("Game Console R36S"). The earlier string-concat +
+# unquoted for-loop split that by whitespace, so the device-specific
+# quirk dir was never iterated and 001-device_config never wrote the
+# DEVICE_TEMP_SENSOR/etc. exports — System Information in ES had no
+# CPU/GPU temperature, no playback path, and the rest of the quirks
+# silently no-op'd. Array iteration with quoted expansion preserves the
+# path verbatim.
+if [ ${#QUIRK_DIRS[@]} -gt 0 ]; then
   tocon "Applying ${HW_DEVICE} / ${QUIRK_DEVICE} quirks..."
-  for QDIR in ${QUIRK_DIRS}; do
+  for QDIR in "${QUIRK_DIRS[@]}"; do
     for script in "${QDIR}"/*; do
       [ -f "${script}" ] || continue
       log "Run ${script}"

@@ -8,4 +8,7 @@ DEVICE_PLAYBACK_PATH_SPK="HP"
 DEVICE_PLAYBACK_PATH_HP="SPK"
 DEVICE_PWR_LED_GPIO="77"
 DEVICE_TEMP_SENSOR="/sys/devices/virtual/thermal/thermal_zone0/temp"
+# thermal_zone1 is the gpu-thermal IP — System Information shows the
+# GPU temperature alongside the CPU one when this is set.
+DEVICE_GPU_TEMP_SENSOR="/sys/devices/virtual/thermal/thermal_zone1/temp"
 EOF
