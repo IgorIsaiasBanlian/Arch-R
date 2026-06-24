@@ -1,6 +1,10 @@
 [Unit]
-Description=ArchR user autostart script
-Before=autostart.service
+Description=ArchR storage automount service
+# autostart.service é nome herdado do JELOS; em ArchR a unit real
+# chama-se archr-autostart.service. Sem o prefixo o Before= era
+# silenciosamente ignorado e o automount não tinha garantia de rodar
+# antes do autostart.
+Before=archr-autostart.service
 After=systemd-tmpfiles-setup.service
 RequiresMountsFor=/storage
 

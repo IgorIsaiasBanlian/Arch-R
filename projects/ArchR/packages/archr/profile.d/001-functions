@@ -82,7 +82,10 @@ function wait_lock() {
   do
     if (set -o noclobber; echo "$$" > "${J_CONF_LOCK}") 2>/dev/null
     then
-      trap 'rm -f "$lockfile"; exit $?' INT TERM EXIT
+      # Trap original referenciava $lockfile (variável inexistente)
+      # — o rm -f "" do INT/TERM virava no-op e deixava lock órfão se
+      # o script morresse antes do rm explícito no final.
+      trap 'rm -f "${J_CONF_LOCK}"; exit $?' INT TERM EXIT
       break
     else
      sleep 1
