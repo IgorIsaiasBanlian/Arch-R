@@ -25,6 +25,12 @@ makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin
     cp ${PKG_DIR}/scripts/wg-keygen ${INSTALL}/usr/bin
     cp ${PKG_BUILD}/src/wg ${INSTALL}/usr/bin
+    # wg-quick is the upstream interface up/down helper (a bash script). The
+    # ES "WIREGUARD VPN" toggle runs `wg-quick up/down`, but only `wg` was
+    # installed, so the toggle silently failed. Ship the Linux variant; its
+    # runtime deps (bash, ip, wg, iptables) are all present.
+    cp ${PKG_BUILD}/src/wg-quick/linux.bash ${INSTALL}/usr/bin/wg-quick
+    chmod +x ${INSTALL}/usr/bin/wg-quick
 
   mkdir -p ${INSTALL}/usr
     cp -R ${PKG_DIR}/config ${INSTALL}/usr

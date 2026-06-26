@@ -845,6 +845,16 @@ function set_runahead() {
     esac
 }
 
+function set_frame_delay() {
+    # AUTO FRAME DELAY menu (configName.video_frame_delay_auto): "" = AUTO
+    # (leave retroarch.cfg default), "1" = ON, "0" = OFF. RetroArch expects a
+    # bool, so map ON/OFF to true/false and leave AUTO untouched.
+    case "$(game_setting video_frame_delay_auto)" in
+        1) add_setting "none" "video_frame_delay_auto" "true" ;;
+        0) add_setting "none" "video_frame_delay_auto" "false" ;;
+    esac
+}
+
 function set_audiolatency() {
     add_setting "audiolatency" "audio_latency"
 }
@@ -1284,6 +1294,7 @@ set_savestates &
 set_autosave &
 set_netplay &
 set_runahead &
+set_frame_delay &
 set_audiolatency &
 set_analogsupport &
 set_tatemode &
