@@ -1,5 +1,9 @@
-ACTION=="add|change", KERNEL=="mmcblk[0-9]*", ATTR{queue/scheduler}="bfq"
-ACTION=="add|change", KERNEL=="mmcblk[0-9]*", ATTR{queue/iosched/low_latency}="1"
-ACTION=="add|change", KERNEL=="mmcblk[0-9]*", ATTR{queue/read_ahead_kb}="2048"
-ACTION=="add|change", KERNEL=="mmcblk[0-9]*", ATTR{queue/nr_requests}="128"
-ACTION=="add|change", KERNEL=="mmcblk[0-9]*", ATTR{queue/rq_affinity}="2"
+# Tune the I/O scheduler on the whole SD/eMMC disks. The queue/* knobs live
+# on the disk, not its partitions, so we gate on DEVTYPE=="disk": matching
+# `mmcblk[0-9]*` alone also hit mmcblk1p1/p2/p3 and spammed the boot log with
+# "Failed to write ATTR{.../queue/scheduler}: No such file or directory".
+ACTION=="add|change", SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", KERNEL=="mmcblk[0-9]*", ATTR{queue/scheduler}="bfq"
+ACTION=="add|change", SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", KERNEL=="mmcblk[0-9]*", ATTR{queue/iosched/low_latency}="1"
+ACTION=="add|change", SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", KERNEL=="mmcblk[0-9]*", ATTR{queue/read_ahead_kb}="2048"
+ACTION=="add|change", SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", KERNEL=="mmcblk[0-9]*", ATTR{queue/nr_requests}="128"
+ACTION=="add|change", SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", KERNEL=="mmcblk[0-9]*", ATTR{queue/rq_affinity}="2"

@@ -798,6 +798,14 @@
 
 &tsadc {
     status = "okay";
+    /*
+     * Explicit hardware thermal-shutdown config (CRU self-reset on
+     * over-temp, active-low) matching the driver defaults, to silence the
+     * "Missing tshut mode/polarity property" boot warning. No behaviour
+     * change.
+     */
+    rockchip,hw-tshut-mode = <0>;
+    rockchip,hw-tshut-polarity = <0>;
 };
 
 &u2phy {

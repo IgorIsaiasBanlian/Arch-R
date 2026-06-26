@@ -1,6 +1,14 @@
 #!/bin/sh
 . /etc/profile
 HOSTNAME=$(get_setting system.hostname)
+# Make the hostname unique per device. Multiple ArchR consoles on one LAN
+# otherwise share a name and collide on NetBIOS / mDNS registration (nmbd
+# "Failed to register my name ..."). Append a short, stable suffix derived
+# from the per-device machine-id (the same id the gadget uses for its
+# serial). Skip if no machine-id is available yet.
+MID="$(cat /storage/.cache/systemd-machine-id 2>/dev/null)"
+[ -z "${MID}" ] && MID="$(cat /etc/machine-id 2>/dev/null)"
+[ -n "${MID}" ] && HOSTNAME="${HOSTNAME}-$(echo "${MID}" | cut -c1-4)"
 echo ${HOSTNAME} >/proc/sys/kernel/hostname
 hostnamectl --transient hostname ${HOSTNAME}
 avahi-set-host-name ${HOSTNAME}

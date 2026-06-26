@@ -31,6 +31,10 @@ LABEL="rtl8188eus_swap"
 # mesmo tempo); depois carrega 8188eu, que vai bindar pela alias
 # table. ${BUSNUM} e ${DEVNUM} são fornecidos por udev e identificam
 # o device USB sem ambiguidade.
-RUN+="/usr/bin/sh -c 'busid=$(basename %p); for drv in /sys/bus/usb/drivers/rtl8xxxu; do [ -e \"$drv/$busid\" ] && echo \"$busid\" > \"$drv/unbind\" 2>/dev/null; done; modprobe 8188eu 2>/dev/null'"
+# udev parses `$` in RUN as its own specifier prefix, so shell variables
+# must be doubled (`$$` -> literal `$`). The previous single-`$` form made
+# udev reject the whole rule ("invalid substitution type"), so the rebind
+# never ran and the dongle was left on rtl8xxxu by luck of probe order.
+RUN+="/usr/bin/sh -c 'busid=$$(basename %p); for drv in /sys/bus/usb/drivers/rtl8xxxu; do [ -e \"$$drv/$$busid\" ] && echo \"$$busid\" > \"$$drv/unbind\" 2>/dev/null; done; modprobe 8188eu 2>/dev/null'"
 
 LABEL="rtl8188eus_end"
