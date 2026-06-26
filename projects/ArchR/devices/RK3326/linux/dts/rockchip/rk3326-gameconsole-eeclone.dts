@@ -786,12 +786,14 @@
 };
 
 &emmc {
-    status = "okay";
-    no-sdio;
-    no-sd;
-    disable-wp;
-    non-removable;
-    num-slots = <1>;
+    /*
+     * The R36S Clone board has no eMMC chip populated; it boots from the
+     * SD slot (&sdmmc). Leaving this controller enabled + non-removable
+     * makes it endlessly retry initializing an absent card, producing the
+     * boot-time "Timeout sending command" / "Failed to initialize a
+     * non-removable card" errors and wasting boot time. Disable it.
+     */
+    status = "disabled";
 };
 
 &tsadc {
@@ -907,7 +909,17 @@
 };
 
 &uart5 {
+    /*
+     * Console UART (serial2 / ttyS2). The px30 default pinctrl pulls in
+     * uart5_cts (gpio3 RK_PA3) and uart5_rts, but RK_PA3 is already
+     * claimed on this board, so the kernel fails the whole pin group and
+     * reverts it ("Error applying setting, reverse things back"), which
+     * can leave even TX/RX unapplied. A console needs no hardware flow
+     * control, so mux only xfer (TX/RX on RK_PA2/RK_PA1).
+     */
     status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart5_xfer>;
 };
 &uart2 {
     status = "disabled";
