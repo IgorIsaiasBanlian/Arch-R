@@ -1,0 +1,73 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2024-present ArchR (https://github.com/archr-linux/Arch-R)
+#
+# Copy the freshly-built base device trees into the overlay-generator
+# website (archr-website) so its bundled /archr-bases stay in lockstep
+# with the SO image. The web generator mirrors the user's stock DTB
+# against these base DTBs; if they drift, every generated overlay is
+# anchored against the wrong node structure.
+#
+# Run host-side AFTER the build (the docker build cannot reach the
+# website repo, which is not mounted into the container). Wired into the
+# Makefile docker-RK3326 path; safe to run by hand too. Idempotent and
+# non-fatal: if the website repo or the built DTBs are missing it warns
+# and exits 0 so it never breaks a build.
+#
+# It only copies the files. Review + commit + deploy stay manual (the
+# site is published separately), so this never touches another repo's
+# git history on its own.
+
+set -u
+
+# distribution repo root (this script lives in scripts/repo/)
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+
+# The shipped image is aarch64; fall back to arm if that is all there is.
+DT=""
+for arch in aarch64 arm; do
+  cand="${ROOT}/build.ArchR-RK3326.${arch}/image/system/usr/share/bootloader/device_trees"
+  if [ -d "${cand}" ]; then DT="${cand}"; break; fi
+done
+
+# Website repo: override with ARCHR_WEBSITE_DIR, else assume sibling.
+SITE="${ARCHR_WEBSITE_DIR:-${ROOT}/../archr-website}"
+
+# The three base DTBs the generator bundles (see ARCHR_BASE_DTBS in
+# archr_dtbo.py).
+BASES="rk3326-gameconsole-r36s.dtb rk3326-gameconsole-eeclone.dtb rk3326-gameconsole-soysauce.dtb"
+
+if [ -z "${DT}" ]; then
+  echo "sync-site-bases: no built device_trees found under ${ROOT}/build.ArchR-RK3326.*, skipping"
+  exit 0
+fi
+if [ ! -d "${SITE}/public/archr-bases" ]; then
+  echo "sync-site-bases: website not found at ${SITE}/public/archr-bases (set ARCHR_WEBSITE_DIR), skipping"
+  exit 0
+fi
+
+changed=0
+for b in ${BASES}; do
+  src="${DT}/${b}"
+  if [ ! -f "${src}" ]; then
+    echo "sync-site-bases: WARN built ${b} missing, skipping it"
+    continue
+  fi
+  for sub in public out; do
+    dstdir="${SITE}/${sub}/archr-bases"
+    [ -d "${dstdir}" ] || continue
+    dst="${dstdir}/${b}"
+    if ! cmp -s "${src}" "${dst}" 2>/dev/null; then
+      cp "${src}" "${dst}"
+      echo "sync-site-bases: updated ${sub}/archr-bases/${b}"
+      changed=1
+    fi
+  done
+done
+
+if [ "${changed}" = "1" ]; then
+  echo "sync-site-bases: base DTBs refreshed in ${SITE}. Review, commit and redeploy the site to publish."
+else
+  echo "sync-site-bases: site base DTBs already up to date."
+fi
+exit 0

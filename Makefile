@@ -113,6 +113,12 @@ docker-image-pull:
 	$(DOCKER_CMD) pull $(DOCKER_IMAGE)
 
 # Wire up docker to call equivalent make files using % to match and $* to pass the value matched by %
+# After a successful RK3326 build, refresh the overlay-generator website's
+# bundled base DTBs (/archr-bases) so they never drift from the shipped image.
+# Runs host-side on purpose: the website repo is not mounted into the build
+# container. The sync script is itself non-fatal, and the guard keeps it off
+# non-build docker targets (docker-shell, docker-update, ...).
 docker-%:
 	./scripts/get_env > .env
 	BUILD_DIR="$(DOCKER_WORK_DIR)" $(DOCKER_CMD) run $(PODMAN_ARGS) $(INTERACTIVE) --init --env-file .env --rm --user $(UID):$(GID) $(GLOBAL_SETTINGS) $(LOCAL_SSH_KEYS_FILE) $(EMULATIONSTATION_SRC) -v "$(PWD)":"$(DOCKER_WORK_DIR)" -v /tmp:/tmp -w "$(DOCKER_WORK_DIR)" $(DOCKER_EXTRA_OPTS) $(DOCKER_IMAGE) $(COMMAND)
+	@if [ "$*" = "RK3326" ]; then ./scripts/repo/sync-site-bases; fi
