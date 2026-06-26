@@ -10,8 +10,15 @@ export SDL_AUDIODRIVER=pulseaudio
 
 TZ=$(get_setting system.timezone)
 echo -n "TIMEZONE=${TZ}" > /storage/.cache/timezone
+# es_settings is ExecStartPre for emustation.service, so it runs on every ES
+# (re)start. Restarting tz-data is synchronous and blocks the ES relaunch
+# (a visible chunk of the "Restart EmulationStation" black screen), yet it
+# only matters when the timezone changed. Skip it otherwise.
+PREV_TZ="$(cat /storage/.cache/system_timezone 2>/dev/null)"
 echo -n "${TZ}" >/storage/.cache/system_timezone
-systemctl restart tz-data.service
+if [ "${TZ}" != "${PREV_TZ}" ]; then
+  systemctl restart tz-data.service
+fi
 
 MYLOCALE=$(get_setting system.language)
 if [[ -n "${MYLOCALE}" ]]

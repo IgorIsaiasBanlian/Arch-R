@@ -19,8 +19,12 @@ ExecStartPre=/usr/bin/es_settings
 ExecStart=/usr/bin/emulationstation --log-path /var/log --no-splash
 KillMode=process
 TimeoutStopSec=3
+# RestartSec is pure dead time on a user-initiated "Restart EmulationStation"
+# (and after a crash). StartLimitIntervalSec/StartLimitBurst above already
+# stop a crash-loop from flooding, so keep just enough debounce to avoid a
+# tight loop.
 Restart=always
-RestartSec=2
+RestartSec=1
 
 [Install]
 WantedBy=archr.target
