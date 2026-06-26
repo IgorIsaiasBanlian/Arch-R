@@ -111,10 +111,11 @@ function quit() {
         restore_ksm
         set_kill set "emulationstation"
         clear_screen
-        # Restore CPU governor to user pref (or ondemand fallback). Without
-        # the fallback the CPU stays in performance + boost after exit
-        # because performance() unconditionally turns boost on for the
-        # 1512 MHz turbo OPP, draining battery in the menu.
+        # Restore CPU governor to user pref (or ondemand fallback). Gameplay
+        # switches to the performance governor, so without the fallback the
+        # CPU stays pinned at max in the menu, draining battery. The 1512 MHz
+        # turbo OPP itself follows the user's overclock toggle (performance()
+        # calls restore_cpu_boost), so it is not forced on here.
         DEVICE_CPU_GOVERNOR=$(get_setting system.cpugovernor)
         case "${DEVICE_CPU_GOVERNOR}" in
                 performance|ondemand|schedutil|powersave)
