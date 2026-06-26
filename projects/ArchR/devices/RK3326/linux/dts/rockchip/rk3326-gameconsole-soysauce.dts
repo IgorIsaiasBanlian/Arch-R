@@ -54,7 +54,7 @@
 
 	joypad: odroidgo3-joypad {
 		/* All Y3506 (soysauce) boards we've seen use single-ADC + amux
-		 * (amux-count=4, amux-channel-mapping=<3 2 0 1>) — that is the
+		 * (amux-count=4, amux-channel-mapping=<3 2 0 1>), which is the
 		 * archr-singleadc-joypad driver's wire protocol. The previous
 		 * "archr-joypad" / "odroidgo3-joypad" compat strings bind to
 		 * the multi-ADC driver, which ignores the amux-* props and
@@ -91,14 +91,24 @@
 		button-adc-fuzz = <32>;
 		button-adc-flat = <32>;
 
-		abs_x-p-tuning = <200>;
-		abs_x-n-tuning = <200>;
-		abs_y-p-tuning = <200>;
-		abs_y-n-tuning = <200>;
-		abs_rx-p-tuning = <200>;
-		abs_rx-n-tuning = <200>;
-		abs_ry-p-tuning = <200>;
-		abs_ry-n-tuning = <200>;
+		/*
+		 * The Y3506 analog sticks only swing to ~76% of the declared
+		 * range at full deflection with the default 200 gain (measured
+		 * ~1365 of 1800 via evtest), so partial pushes never cross the
+		 * EmulationStation navigation threshold and menu scrolling needs
+		 * several flicks per item. Bump the gain so full deflection
+		 * saturates the axis; games keep all but the top few percent of
+		 * travel. The R36S/eeclone pots reach full range at 200, this is
+		 * a Y3506-specific calibration.
+		 */
+		abs_x-p-tuning = <280>;
+		abs_x-n-tuning = <280>;
+		abs_y-p-tuning = <280>;
+		abs_y-n-tuning = <280>;
+		abs_rx-p-tuning = <280>;
+		abs_rx-n-tuning = <280>;
+		abs_ry-p-tuning = <280>;
+		abs_ry-n-tuning = <280>;
 
 		poll-interval = <10>;
 
@@ -207,7 +217,25 @@
 };
 
 &rk817_codec {
+	/*
+	 * The loudspeaker is not on the rk817 class-D SPKO output; it hangs off
+	 * the analog headphone output through an external amp enabled by
+	 * spk-ctl-gpios. Tell the codec driver to route the speaker path through
+	 * the headphone DACs and toggle that GPIO (see the rk817 ext-amplifier
+	 * patch) instead of driving the unused class-D.
+	 */
+	rockchip,use-ext-amplifier;
 	spk-ctl-gpios = <&gpio3 RK_PC4 GPIO_ACTIVE_HIGH>;
+};
+
+/*
+ * The shared r3xs hp-det pin uses pcfg_pull_down, which on this board pins the
+ * headphone-detect line low forever (insertion is never seen). The stock R35S
+ * DTB leaves it at pcfg_pull_none and lets the jack circuit drive the level, so
+ * override the pull here for the Soysauce only.
+ */
+&hp_det {
+	rockchip,pins = <2 RK_PC6 RK_FUNC_GPIO &pcfg_pull_none>;
 };
 
 &pinctrl {
