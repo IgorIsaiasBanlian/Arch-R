@@ -10,4 +10,13 @@
 cat <<CONF >/storage/.config/profile.d/001-device_config
 DEVICE_TEMP_SENSOR="/sys/devices/virtual/thermal/thermal_zone0/temp"
 DEVICE_GPU_TEMP_SENSOR="/sys/devices/virtual/thermal/thermal_zone1/temp"
+# Headphone/speaker switching (headphone_sense). The rk817 ext-amplifier patch
+# routes the "SPK" mux position to the loudspeaker (headphone DACs + external
+# amp) and "HP" to the headphone jack, so the mapping is direct (the R36S
+# inverts it). DEVICE_HEADPHONE_DEV is the kernel jack input device that emits
+# SW_HEADPHONE_INSERT; headphone_sense flips the "Playback Mux" on plug/unplug
+# and the codec driver follows it to toggle the speaker amp GPIO.
+DEVICE_PLAYBACK_PATH_SPK="SPK"
+DEVICE_PLAYBACK_PATH_HP="HP"
+DEVICE_HEADPHONE_DEV="/dev/input/by-path/platform-rk817-sound-event"
 CONF
