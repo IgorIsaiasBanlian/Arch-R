@@ -1,0 +1,13 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2024-present ArchR (https://github.com/archr-linux/Arch-R)
+
+# Minimal per-device config: wire up the temperature sensors so System
+# Information (archr-info) and EmulationStation show CPU/GPU temps. The
+# quirks loader matches the folder name against /proc/device-tree/model
+# exactly, so this folder name MUST equal the DTS `model` string. Audio
+# routing and LED config are intentionally left to the working defaults.
+cat <<CONF >/storage/.config/profile.d/001-device_config
+DEVICE_TEMP_SENSOR="/sys/devices/virtual/thermal/thermal_zone0/temp"
+DEVICE_GPU_TEMP_SENSOR="/sys/devices/virtual/thermal/thermal_zone1/temp"
+CONF
