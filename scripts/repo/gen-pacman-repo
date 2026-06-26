@@ -167,6 +167,30 @@ fi
     ln -sf "${REPO_NAME}.db.tar.gz" "${REPO_NAME}.db" && \
     ln -sf "${REPO_NAME}.files.tar.gz" "${REPO_NAME}.files" )
 
+# Seed an installed (local) db. Without it the shipped image's
+# /var/lib/pacman/local is empty: `pacman -Q` returns nothing and
+# `pacman -Syu` (archr-update) can only install user addons, never upgrade
+# the base. We register every just-built package as installed (db entry
+# only; the files already live in the image squashfs) into a staging dbpath
+# and tar the resulting local/ tree. It is published as a repo asset and
+# pulled in on first boot by the 004-seed-pacmandb autostart hook (so no
+# image-build wiring is needed; the seed always matches this build).
+echo "gen-pacman-repo: seeding installed (local) db..."
+seed_dbpath="${OUT_DIR}/.seed-dbpath"
+rm -rf "${seed_dbpath}" "${OUT_DIR}/.seed-root"
+mkdir -p "${seed_dbpath}/local" "${seed_dbpath}/sync"
+cp "${local_db}" "${seed_dbpath}/sync/${REPO_NAME}.db"
+if fakeroot pacman -U --dbonly --noconfirm \
+        --root "${OUT_DIR}/.seed-root" --dbpath "${seed_dbpath}" \
+        --cachedir "${OUT_DIR}" \
+        "${OUT_DIR}"/*.pkg.tar.zst >/dev/null 2>&1; then
+    tar -C "${seed_dbpath}" -czf "${OUT_DIR}/${REPO_NAME}-localdb.tar.gz" local
+    echo "  wrote ${REPO_NAME}-localdb.tar.gz ($(ls -1 "${seed_dbpath}/local" | wc -l) entries)"
+else
+    echo "  WARNING: local-db seed failed; base will not be pacman-upgradable" >&2
+fi
+rm -rf "${seed_dbpath}" "${OUT_DIR}/.seed-root"
+
 echo ""
 echo "gen-pacman-repo: ready at ${OUT_DIR}"
 ls -1sh "${OUT_DIR}" | head -20
