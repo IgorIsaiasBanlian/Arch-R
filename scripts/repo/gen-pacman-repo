@@ -96,7 +96,20 @@ build_one_pkg() {
     # turned into a stray '.' by tr -c.
     version="$(printf '%s' "${version}" | tr -c 'a-zA-Z0-9.+_' '.')"
 
+    # pkgrel comes from the package's PKG_REV (the standard knob for "same
+    # upstream version, new package build", e.g. a changed local overlay
+    # like a joypad autoconfig). Hardcoding 1 here meant any local-only
+    # change never produced a newer package, so pacman never saw it as an
+    # update. Default to 1 when PKG_REV is unset or dynamic.
     local pkgrel=1
+    if [ -n "${pkgmk}" ]; then
+        local rev
+        rev="$(awk -F'"' '/^PKG_REV/ {print $2; exit}' "${pkgmk}")"
+        case "${rev}" in
+            ''|*'$('* | *'${'* ) : ;;
+            *) pkgrel="${rev}" ;;
+        esac
+    fi
     local outfile="${OUT_DIR}/${name}-${version}-${pkgrel}-${ARCH}.pkg.tar.zst"
 
     # .PKGINFO sidecar that pacman reads on install. pkgbase is
