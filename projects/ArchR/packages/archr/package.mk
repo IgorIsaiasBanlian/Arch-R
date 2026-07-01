@@ -7,11 +7,15 @@ PKG_NAME="archr"
 # PKG_VERSION. That made the install_pkg dir "archr-" and gen-pacman-repo
 # synthesize the constant version "archr.", so the package version never
 # changed and pacman never saw an update for it (the main system config
-# package). Stamp it with the build timestamp instead: the literal text
-# here is stable (no rebuild churn), but each actual rebuild evaluates a
-# fresh, monotonically increasing version, so changes to system.cfg,
-# runemu, wifictl, governors etc. ship as real `pacman -Syu` updates.
-PKG_VERSION="$(date +%Y%m%d%H%M%S)"
+# package). Stamp it with the build DAY so changes to system.cfg, runemu,
+# wifictl, governors etc. ship as real `pacman -Syu` updates.
+#
+# Day resolution on purpose: the build system re-evaluates package.mk on
+# every step and derives PKG_INSTALL from PKG_NAME-PKG_VERSION, so a
+# seconds-resolution stamp gave the build and install steps different
+# versions; the install silently skipped a PKG_INSTALL dir that did not
+# exist and the image assembly then failed in post_install.
+PKG_VERSION="$(date +%Y%m%d)"
 PKG_LICENSE="GPLv2"
 PKG_SITE=""
 PKG_URL=""
