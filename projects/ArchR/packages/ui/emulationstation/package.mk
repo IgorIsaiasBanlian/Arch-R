@@ -2,15 +2,16 @@
 # Copyright (C) 2026 ArchR (https://github.com/archr-linux/Arch-R)
 
 PKG_NAME="emulationstation"
-PKG_VERSION="8a257e1fa996c40f29c7ddfb7d0a913bfd814748"
+PKG_VERSION="37f12a02da198025f841726703167888a162b6b1"
 PKG_GIT_CLONE_BRANCH="master"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/archr-linux/emulationstation-next"
 PKG_URL="${PKG_SITE}.git"
-PKG_DEPENDS_TARGET="boost toolchain SDL2 freetype curl freeimage bash rapidjson SDL2_mixer fping p7zip alsa vlc drm_tool pugixml"
+PKG_DEPENDS_TARGET="toolchain SDL2 freetype curl freeimage bash rapidjson SDL2_mixer fping p7zip alsa vlc drm_tool pugixml"
 PKG_NEED_UNPACK="busybox"
 PKG_LONGDESC="Emulationstation emulator frontend"
-PKG_BUILD_FLAGS="-gold"
+# +lto: ~10-15% smaller binary and better icache locality on the A35.
+PKG_BUILD_FLAGS="+lto -gold"
 GET_HANDLER_SUPPORT="git"
 PKG_PATCH_DIRS+="${DEVICE}"
 
