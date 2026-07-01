@@ -24,12 +24,12 @@ Arch R is a custom Linux distribution for the **R36S** handheld gaming console a
 - EmulationStation frontend with RetroArch and 18+ cores pre-installed.
 - Full audio support with speaker/headphone auto-switch.
 - Battery monitoring with capacity reporting and LED warning.
-- 43 pre-generated MIPI panel overlays (15 original + 18 clone + 10 soysauce variants), one per motherboard revision.
+- MIPI panel overlays for every known motherboard revision, generated on demand by the online overlay generator at https://arch-r.io/overlay-generator/ (or during flashing by the Arch R Flasher).
 - Separate images for original and clone boards, both with hardware auto-detection.
 - Integrated cross-device local and remote network play.
 - Fine-grained control for battery life and performance.
-- Bluetooth audio and controller support.
-- HDMI audio/video output, USB audio.
+- Bluetooth audio and controller support (via USB Bluetooth adapter; the boards have no internal radio).
+- USB audio devices (DACs, headsets, controllers with audio).
 - Device sync with Syncthing and rclone.
 - VPN support with WireGuard, Tailscale, and ZeroTier.
 - Built-in scraping and RetroAchievements.
@@ -50,7 +50,7 @@ Arch R is a custom Linux distribution for the **R36S** handheld gaming console a
 
 ### Display Panels
 
-Arch R ships 43 pre-generated MIPI panel overlays covering all known R36S display variants, named after the exact motherboard revision (e.g. `R36S-V21_2024-12-18_2551.dtbo`, `G80CA-MB_V1.3-20251212_Panel_8.dtbo`). Panel selection is done by copying the correct `.dtbo` file to `overlays/mipi-panel.dtbo` on the boot partition. Sources live under `config/archr-dts/{original,clone,soysauce}/<MB-revision>/`; the build extracts the panel description from each revision's `rk3326-r36s-linux.dtb` via `config/mipi-generator/generator.sh`.
+Panel overlays are not baked into the images. Generate the overlay for your exact motherboard revision at the online generator, https://arch-r.io/overlay-generator/ (pick your board, or upload the stock `dtb` from the SD card that shipped with the device), then copy the resulting file to `overlays/mipi-panel.dtbo` on the boot partition. The Arch R Flasher can also generate and install the overlay during flashing. The `/flash/overlays/` folder on a fresh install contains a `README.txt` with the same instructions.
 
 ## Quick Start
 
