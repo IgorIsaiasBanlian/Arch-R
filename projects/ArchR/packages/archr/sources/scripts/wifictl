@@ -225,12 +225,35 @@ has_ap_mode() {
   fi
 }
 
+# Alguns clones têm o módulo WiFi USB interno dividindo as linhas de dados
+# da OTG com a porta USB física através de um mux de hardware (patch 0026
+# expõe o gpio como sysfs usb_switch_gpio: 0 = WiFi interno, 1 = porta
+# externa; usb_switch_ext liga o vbus da porta). Seguir o toggle de WiFi,
+# igual ao SO stock: desabilitar o WiFi libera a porta física pra dongles
+# e acessórios. No-op em placas sem o mux.
+set_usb_wifi_mux() {
+  local val="$1" f
+  for f in /sys/devices/platform/*/*usb2phy*/usb_switch_gpio \
+           /sys/devices/platform/*usb2phy*/usb_switch_gpio; do
+    [ -e "${f}" ] && echo "${val}" > "${f}" 2>/dev/null
+  done
+  for f in /sys/devices/platform/*/*usb2phy*/usb_switch_ext \
+           /sys/devices/platform/*usb2phy*/usb_switch_ext; do
+    if [ -e "${f}" ]; then
+      # porta externa ativa (mux=1) precisa do vbus dela ligado
+      if [ "${val}" = "1" ]; then echo 1 > "${f}" 2>/dev/null; else echo 0 > "${f}" 2>/dev/null; fi
+    fi
+  done
+}
+
 case "${1}" in
   enable)
     rfkill unblock wifi
+    set_usb_wifi_mux 0
     ;;
   disable)
     rfkill block wifi
+    set_usb_wifi_mux 1
     ;;
   connect)
     if [ "${WIFI_TYPE}" = "1" ] && \
