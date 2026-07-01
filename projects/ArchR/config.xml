@@ -15,6 +15,7 @@
     </original>
     <clone mkimage_options="dtb,bootscr,extlinux,uboot" fdt_type="fdtdir" fdt="/dtbs/">
       <file>rk3326-gameconsole-eeclone</file>
+      <file>rk3326-aislpc-r36tmax</file>
       <file>rk3326-powkiddy-rgb10x</file>
       <file>rk3326-magicx-xu-mini-m</file>
       <file>rk3326-odroid-go2</file>
