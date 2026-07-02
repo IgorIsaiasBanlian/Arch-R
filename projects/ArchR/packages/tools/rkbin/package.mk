@@ -34,7 +34,7 @@ post_unpack() {
   RK3326_DDR_FREQ="${RK3326_DDR_FREQ:-786}"
   DDR_BIN="$(ls ${PKG_BUILD}/bin/rk33/rk3326_ddr_333MHz_*.bin)"
   ${PKG_BUILD}/tools/ddrbin_tool.py rk3326 -g ${PKG_BUILD}/rk3326_ddr_freq.txt ${DDR_BIN}
-  sed -i -E "s|^(lp2_freq|ddr3_freq|lp3_freq|ddr4_freq|lp4_freq)=.*|\1=${RK3326_DDR_FREQ}|" ${PKG_BUILD}/rk3326_ddr_freq.txt
+  sed -i -E "s#^(lp2_freq|ddr3_freq|lp3_freq|ddr4_freq|lp4_freq)=.*#\1=${RK3326_DDR_FREQ}#" ${PKG_BUILD}/rk3326_ddr_freq.txt
   ${PKG_BUILD}/tools/ddrbin_tool.py rk3326 ${PKG_BUILD}/rk3326_ddr_freq.txt ${DDR_BIN} >/dev/null
   echo "rkbin: RK3326 TPL DDR frequency set to ${RK3326_DDR_FREQ}MHz"
 
