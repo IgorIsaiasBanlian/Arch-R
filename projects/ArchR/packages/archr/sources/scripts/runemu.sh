@@ -485,7 +485,11 @@ if [[ "${ROMNAME}" == *".sh" ]] && [ ! "${PLATFORM}" = "ports" ] && [ ! "${PLATF
         ret_error=$?
 else
         ${VERBOSE} && log $0 "Executing $(eval echo ${RUNTHIS})"
-        eval ${RUNTHIS} &>>${OUTPUT_LOG}
+        # Launch the emulator at high priority: with the full-preempt
+        # kernel this keeps frame pacing stable when background work
+        # (udev, journald, wifi) wakes up mid-frame. Same value dArkOS
+        # uses for its emulators.
+        eval nice -n -19 ${RUNTHIS} &>>${OUTPUT_LOG}
         ret_error=$?
 fi
 
