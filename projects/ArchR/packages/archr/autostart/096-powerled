@@ -1,0 +1,11 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2026-present ArchR (https://github.com/archr-linux/Arch-R)
+
+# Re-apply the user's POWER LED COLOR choice at boot. ES persists it as
+# option_powerled but nothing replayed it, so the LED reverted to the DTS
+# default on every boot.
+. /etc/profile.d/001-functions
+
+PWRLED=$(get_setting option_powerled)
+[ -n "${PWRLED}" ] && /usr/bin/batocera-gameforce powerLed "${PWRLED}" &

@@ -1,0 +1,34 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2026-present ArchR (https://github.com/archr-linux/Arch-R)
+#
+# Backend for the EmulationStation AUDIO OUTPUT menu. ApiSystem hardcodes
+# these calls: list, get, set <name>, list-profiles, get-profile,
+# set-profile <name>. The script was missing entirely, so the menu was dead
+# and every ES start logged "set-audio: command not found".
+#
+# PipeWire/WirePlumber via wpctl. Card profiles are not exposed on these
+# boards: the profile subcommands return nothing and ES hides that row.
+
+sinks() {
+  wpctl status 2>/dev/null | sed -n '/Sinks:/,/Sources:/p'
+}
+
+case "$1" in
+  list)
+    sinks | grep -oE '[0-9]+\. .*\[vol' | sed -E 's/^[0-9]+\. //; s/ *\[vol$//' | sort -u
+    ;;
+  get)
+    sinks | grep '\*' | grep -oE '[0-9]+\. .*\[vol' | sed -E 's/^[0-9]+\. //; s/ *\[vol$//' | head -1
+    ;;
+  set)
+    ID=$(sinks | grep -F "$2" | grep -oE '[0-9]+\.' | tr -d '.' | head -1)
+    [ -n "${ID}" ] && wpctl set-default "${ID}"
+    ;;
+  list-profiles|get-profile)
+    :
+    ;;
+  set-profile)
+    exit 0
+    ;;
+esac

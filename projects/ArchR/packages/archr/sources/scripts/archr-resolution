@@ -1,0 +1,17 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2026-present ArchR (https://github.com/archr-linux/Arch-R)
+#
+# Minimal display-output helper. Only listOutputs is consumed today
+# (archr-config lsoutputs); it was missing and logged "command not found"
+# on every ES start. Lists connected DRM connectors (DSI-1 on the panels).
+
+case "$1" in
+  listOutputs)
+    for st in /sys/class/drm/card*-*/status; do
+      [ -f "${st}" ] || continue
+      [ "$(cat "${st}" 2>/dev/null)" = "connected" ] && basename "$(dirname "${st}")" | sed 's/^card[0-9]*-//'
+    done
+    ;;
+esac
+exit 0

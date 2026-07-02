@@ -1,0 +1,40 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2026-present ArchR (https://github.com/archr-linux/Arch-R)
+#
+# Compat backend for the ES "POWER LED COLOR" menu: ApiSystem hardcodes
+# `batocera-gameforce powerLed <heartbeat|off|on>` (and buttonColorLed for
+# the GameForce RGB buttons, which these boards do not have). The script
+# did not exist, so the menu silently did nothing on RK3326.
+#
+# Drives the plain gpio-led power indicator: blue by default; the red LED
+# stays owned by powerstate/ledcontrol as the charging indicator. Devices
+# can override the LED name via DEVICE_POWER_LED in their quirk profile.
+
+if [ -z "${DEVICE_POWER_LED}" ] && [ -f /storage/.config/profile.d/001-device_config ]; then
+  . /storage/.config/profile.d/001-device_config 2>/dev/null
+fi
+
+LEDPATH="/sys/class/leds/${DEVICE_POWER_LED:-blue}"
+
+case "$1" in
+  powerLed)
+    [ -d "${LEDPATH}" ] || exit 0
+    case "$2" in
+      off)
+        echo none > "${LEDPATH}/trigger"
+        echo 0 > "${LEDPATH}/brightness"
+        ;;
+      on)
+        echo none > "${LEDPATH}/trigger"
+        cat "${LEDPATH}/max_brightness" > "${LEDPATH}/brightness"
+        ;;
+      heartbeat)
+        echo heartbeat > "${LEDPATH}/trigger"
+        ;;
+    esac
+    ;;
+  buttonColorLed)
+    exit 0
+    ;;
+esac
