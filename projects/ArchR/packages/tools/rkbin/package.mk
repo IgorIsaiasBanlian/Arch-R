@@ -29,9 +29,16 @@ post_unpack() {
   # the 786MHz BSP ceiling and pins 528MHz even in its powersave mode.
   # Rewrite the frequency fields inside the TPL with Rockchip's own
   # ddrbin_tool (the long-standing ArkOS "DDR fix") so the memory comes
-  # up at speed from boot. Override with RK3326_DDR_FREQ=666 if a board
-  # proves unstable at 786.
-  RK3326_DDR_FREQ="${RK3326_DDR_FREQ:-786}"
+  # up at speed from boot.
+  #
+  # 786MHz failed the hardware boot test (2026-07-02, Soysauce): the
+  # screen lights and the SoC resets in a loop before U-Boot, i.e. the
+  # TPL DDR training does not converge at that speed on these chips.
+  # dArkOS only reaches 786 through the BSP dmc driver's runtime
+  # retraining, which is gentler than a fixed cold init. 666MHz is the
+  # conservative step (still 2x the old 333); drop to 528 (dArkOS's own
+  # powersave floor) if a board still fails.
+  RK3326_DDR_FREQ="${RK3326_DDR_FREQ:-666}"
   DDR_BIN="$(ls ${PKG_BUILD}/bin/rk33/rk3326_ddr_333MHz_*.bin)"
   ${PKG_BUILD}/tools/ddrbin_tool.py rk3326 -g ${PKG_BUILD}/rk3326_ddr_freq.txt ${DDR_BIN}
   sed -i -E "s#^(lp2_freq|ddr3_freq|lp3_freq|ddr4_freq|lp4_freq)=.*#\1=${RK3326_DDR_FREQ}#" ${PKG_BUILD}/rk3326_ddr_freq.txt
