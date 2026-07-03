@@ -15,6 +15,22 @@
 		this = "r33s";
 	};
 
+	gpio-leds {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&power_led_pin>;
+
+		led-0 {
+			/* Mono blue power LED on GPIO2_B5 (BSP gpio77), active
+			 * low: the old JELOS quirk wrote 1 through the legacy
+			 * gpio sysfs to turn it off. sysfs name is blue:status. */
+			color = <LED_COLOR_ID_BLUE>;
+			function = LED_FUNCTION_STATUS;
+			gpios = <&gpio2 RK_PB5 GPIO_ACTIVE_LOW>;
+			default-state = "on";
+		};
+	};
+
 	builtin_gamepad: r33s_joypad {
 		compatible = "archr-singleadc-joypad";
 		pinctrl-names = "default";
@@ -107,6 +123,12 @@
 };
 
 &pinctrl {
+	leds {
+		power_led_pin: power-led-pin {
+			rockchip,pins = <2 RK_PB5 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+
 	btns {
 		btn_pins: btn-pins {
 				rockchip,pins =	<1 RK_PA2 RK_FUNC_GPIO &pcfg_pull_up>,

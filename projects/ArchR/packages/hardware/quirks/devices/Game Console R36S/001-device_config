@@ -6,7 +6,9 @@ cat <<EOF >/storage/.config/profile.d/001-device_config
 # Device Features
 DEVICE_PLAYBACK_PATH_SPK="HP"
 DEVICE_PLAYBACK_PATH_HP="SPK"
-DEVICE_PWR_LED_GPIO="77"
+# Bicolor power LED on one line (GPIO2_B5, BSP gpio77): sysfs red:status;
+# brightness 1 = red, 0 = the green side. There is no hardware off.
+DEVICE_POWER_LED="red:status"
 DEVICE_TEMP_SENSOR="/sys/devices/virtual/thermal/thermal_zone0/temp"
 # thermal_zone1 is the gpu-thermal IP — System Information shows the
 # GPU temperature alongside the CPU one when this is set.

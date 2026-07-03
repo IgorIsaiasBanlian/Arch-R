@@ -6,6 +6,7 @@ cat <<EOF >/storage/.config/profile.d/001-device_config
 # Device Features
 DEVICE_PLAYBACK_PATH_SPK="HP"
 DEVICE_PLAYBACK_PATH_HP="SPK"
-DEVICE_PWR_LED_GPIO="77"
+# Mono blue power LED (GPIO2_B5, BSP gpio77, active low): sysfs blue:status.
+DEVICE_POWER_LED="blue:status"
 DEVICE_TEMP_SENSOR="/sys/devices/virtual/thermal/thermal_zone0/temp"
 EOF

@@ -15,6 +15,23 @@
 		this = "r36s";
 	};
 
+	gpio-leds {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&power_led_pin>;
+
+		led-0 {
+			/* Bicolor power LED behind a single line (BSP gpio77 =
+			 * GPIO2_B5): driving it high lights red, low shows the
+			 * green side, so there is no hardware "off". Exposed as
+			 * the red half; sysfs name is red:status. */
+			color = <LED_COLOR_ID_RED>;
+			function = LED_FUNCTION_STATUS;
+			gpios = <&gpio2 RK_PB5 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+	};
+
 	joypad: odroidgo3-joypad {
                 compatible = "odroidgo3-joypad";
                 pwms = <&pwm0 0 200000000 0>;		 
@@ -202,6 +219,12 @@
 };
 
 &pinctrl {
+	leds {
+		power_led_pin: power-led-pin {
+			rockchip,pins = <2 RK_PB5 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+
 	btns {
 		btn_pins: btn-pins {
 			rockchip,pins = <1 RK_PB4 RK_FUNC_GPIO &pcfg_pull_up>,

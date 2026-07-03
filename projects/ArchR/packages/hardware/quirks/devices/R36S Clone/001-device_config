@@ -8,6 +8,8 @@
 # exactly, so this folder name MUST equal the DTS `model` string. Audio
 # routing and LED config are intentionally left to the working defaults.
 cat <<CONF >/storage/.config/profile.d/001-device_config
+# LED nodes use color+function (no label), so sysfs is blue:power.
+DEVICE_POWER_LED="blue:power"
 DEVICE_TEMP_SENSOR="/sys/devices/virtual/thermal/thermal_zone0/temp"
 DEVICE_GPU_TEMP_SENSOR="/sys/devices/virtual/thermal/thermal_zone1/temp"
 CONF
