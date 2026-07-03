@@ -31,13 +31,16 @@ post_unpack() {
   # ddrbin_tool (the long-standing ArkOS "DDR fix") so the memory comes
   # up at speed from boot.
   #
-  # 786MHz failed the hardware boot test (2026-07-02, Soysauce): the
-  # screen lights and the SoC resets in a loop before U-Boot, i.e. the
-  # TPL DDR training does not converge at that speed on these chips.
-  # dArkOS only reaches 786 through the BSP dmc driver's runtime
-  # retraining, which is gentler than a fixed cold init. 666MHz is the
+  # 786MHz failed the hardware boot test (2026-07-02, R36S): the screen
+  # lights and the SoC resets in a loop before U-Boot, i.e. the TPL DDR
+  # training does not converge at that speed on a fixed cold init (dArkOS
+  # only reaches 786 through the BSP dmc driver's runtime retraining).
+  # The subsequent "666 and even 333 also fail" scare turned out to be
+  # stale flash copies of the 786 image: a full hardware bisect booted
+  # every combination at 333, and the TPL frequency bytes were verified
+  # inside each disk image (signature at idbloader+0x27bc). 666MHz is the
   # conservative step (still 2x the old 333); drop to 528 (dArkOS's own
-  # powersave floor) if a board still fails.
+  # powersave floor) if a board genuinely fails at 666.
   RK3326_DDR_FREQ="${RK3326_DDR_FREQ:-666}"
   DDR_BIN="$(ls ${PKG_BUILD}/bin/rk33/rk3326_ddr_333MHz_*.bin)"
   ${PKG_BUILD}/tools/ddrbin_tool.py rk3326 -g ${PKG_BUILD}/rk3326_ddr_freq.txt ${DDR_BIN}
