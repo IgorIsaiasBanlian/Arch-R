@@ -7,5 +7,9 @@
 # default on every boot.
 . /etc/profile.d/001-functions
 
-PWRLED=$(get_setting option_powerled)
-[ -n "${PWRLED}" ] && /usr/bin/batocera-gameforce powerLed "${PWRLED}" &
+if [ "$(get_setting powerled.disabled)" = "1" ]; then
+  /usr/bin/batocera-gameforce powerLed off &
+else
+  PWRLED=$(get_setting option_powerled)
+  [ -n "${PWRLED}" ] && /usr/bin/batocera-gameforce powerLed "${PWRLED}" &
+fi

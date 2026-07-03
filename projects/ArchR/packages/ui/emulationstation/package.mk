@@ -2,7 +2,7 @@
 # Copyright (C) 2026 ArchR (https://github.com/archr-linux/Arch-R)
 
 PKG_NAME="emulationstation"
-PKG_VERSION="5088e502c48e5c9c32d5f2bcfc9d0a61539f67e7"
+PKG_VERSION="52ce40a43fe27c25e7d1d0f0a058b93bfdeeacf0"
 PKG_GIT_CLONE_BRANCH="master"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/archr-linux/emulationstation-next"
