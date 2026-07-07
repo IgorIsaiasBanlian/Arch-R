@@ -11,16 +11,21 @@ if [[ ${AUDIO_MANAGEMENT} == "UCM" ]]; then
     exit 0
 fi
 
-# Switch to headphones if we have them already connected at boot.
-# DEVICE_JACK is a legacy gpio sysfs number; mainline kernels don't
-# expose /sys/class/gpio, so only trust it when the node really exists
-# and otherwise start from the speaker path.
-if [ -n "${DEVICE_JACK}" ] && [ -e "/sys/class/gpio/gpio${DEVICE_JACK}/value" ]; then
-  GPIO=$(cat /sys/class/gpio/gpio${DEVICE_JACK}/value)
-else
-  GPIO=1
+# Sync with the REAL jack state at startup. The kernel keeps the switch
+# state in the input device (EV_SW/SW_HEADPHONE_INSERT), so query it via
+# evtest --query (exit 10 = bit set) instead of trusting a saved setting
+# or the legacy /sys/class/gpio number, which mainline kernels don't
+# even expose. On these boards the switch is inverted: value 0 means
+# headphones inserted (see HP_ON below), so bit set = speakers.
+# Fallback order: input switch, legacy gpio node when it exists, speakers.
+JACK_STATE="speakers"
+if [ -n "${DEVICE_HEADPHONE_DEV}" ] && [ -e "${DEVICE_HEADPHONE_DEV}" ]; then
+  evtest --query "${DEVICE_HEADPHONE_DEV}" EV_SW SW_HEADPHONE_INSERT
+  [ $? -eq 0 ] && JACK_STATE="headphone"
+elif [ -n "${DEVICE_JACK}" ] && [ -e "/sys/class/gpio/gpio${DEVICE_JACK}/value" ]; then
+  [ "$(cat /sys/class/gpio/gpio${DEVICE_JACK}/value)" = "0" ] && JACK_STATE="headphone"
 fi
-[[ "$GPIO" == "0" ]] && set_setting "audio.device" "headphone" || set_setting "audio.device" "speakers"
+set_setting "audio.device" "${JACK_STATE}"
 
 ### Set the default audio path, needed for some devices
 if [ -z "${DEVICE_PLAYBACK_PATH}" ]
@@ -28,8 +33,9 @@ then
   DEVICE_PLAYBACK_PATH="Playback Path"
 fi
 
-STARTUP_DEVICE=$(get_setting "audio.device")
-case "${2}" in
+# An explicit request wins; "auto" (or nothing) follows the jack state
+# detected above, so a reboot with headphones plugged starts on HP.
+case "${2:-${JACK_STATE}}" in
     "headphone")
         amixer -c 0 -M cset "name=${DEVICE_PLAYBACK_PATH}" "${DEVICE_PLAYBACK_PATH_HP}"
     ;;
@@ -40,8 +46,15 @@ esac
 
 /usr/bin/volume $(get_setting "audio.volume")
 
-# Headphone sensing 
+# Headphone sensing
 DEVICE="${DEVICE_HEADPHONE_DEV}"
+
+# No jack input device on this board: nothing to watch, the initial
+# path set above is all there is (evtest on an empty path would just
+# die and burn a service restart cycle).
+if [ -z "${DEVICE}" ] || [ ! -e "${DEVICE}" ]; then
+    exit 0
+fi
 
 HP_ON='*(SW_HEADPHONE_INSERT), value 0*'
 HP_OFF='*(SW_HEADPHONE_INSERT), value 1*'
