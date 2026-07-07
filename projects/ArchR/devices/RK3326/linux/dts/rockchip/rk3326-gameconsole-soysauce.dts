@@ -275,3 +275,16 @@
 		};
 	};
 };
+
+/* The Soysauce routes the PMIC interrupt to GPIO0_A7, not the GPIO0_B2
+ * the rest of the family uses (vendor DTB pmic_int pinctrl says pin 7).
+ * With the wrong pin every rk817 interrupt is lost: power key, jack
+ * detect, charger plug events and the suspend wake path (verified live:
+ * /proc/interrupts stayed at zero across button presses). */
+&rk817 {
+	interrupts = <RK_PA7 IRQ_TYPE_LEVEL_LOW>;
+};
+
+&pmic_int {
+	rockchip,pins = <0 RK_PA7 RK_FUNC_GPIO &pcfg_pull_up>;
+};
