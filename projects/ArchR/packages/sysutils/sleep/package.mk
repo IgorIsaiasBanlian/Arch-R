@@ -14,10 +14,16 @@ makeinstall_target() {
 	mkdir -p ${INSTALL}/usr/config/sleep.conf.d
 	cp sleep.conf ${INSTALL}/usr/config/sleep.conf.d/sleep.conf
 	if [ "${DEVICE}" = "RK3326" ]; then
-	  # px30 mainline has no working S3: with the stock order the kernel
-	  # tries "mem" first and the console hangs instead of sleeping. Land
-	  # on s2idle directly; the PMIC pwrkey is a wakeup-source in every
-	  # board DTS so the power button wakes it back up.
+	  # px30 mainline has no working kernel suspend at all: "mem" hangs
+	  # on entry and "freeze" (s2idle) enters but never wakes, not even
+	  # from an armed RTC alarm (tested 2026-07-07 on the Soysauce with
+	  # every wakeup source enabled; real debugging needs UART). Inhibit
+	  # real suspend by default so the power button falls through to
+	  # archr-fake-suspend; the ES SUSPEND MODE menu rewrites this file
+	  # via the suspendmode script, so advanced users can still opt in
+	  # to experiment. Keep freeze first for that case: it is the least
+	  # bad state on this SoC.
+	  sed -i 's/^AllowSuspend=.*/AllowSuspend=no/' ${INSTALL}/usr/config/sleep.conf.d/sleep.conf
 	  sed -i 's/^SuspendState=.*/SuspendState=freeze/' ${INSTALL}/usr/config/sleep.conf.d/sleep.conf
 	fi
         cp modules.bad ${INSTALL}/usr/config
