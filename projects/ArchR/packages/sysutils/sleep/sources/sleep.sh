@@ -74,6 +74,52 @@ modules() {
   esac
 }
 
+alsastate() {
+  # The rk817 codec can lose its routing across s2idle on some boards;
+  # snapshot the whole mixer state instead of trusting post-resume
+  # defaults (the volume restore below only covers the master control).
+  case ${1} in
+    store)
+      alsactl store -f /run/archr-sleep-asound.state >${EVENTLOG} 2>&1
+      ;;
+    restore)
+      if [ -f /run/archr-sleep-asound.state ]; then
+        alsactl restore -f /run/archr-sleep-asound.state >${EVENTLOG} 2>&1
+      fi
+      ;;
+  esac
+}
+
+governors() {
+  # Preserve cpu/gpu/dmc governors across the sleep in case a resume
+  # path resets them (the BSP kernels did; cheap insurance on mainline).
+  local STATE=/run/archr-sleep-governors
+  case ${1} in
+    save)
+      : > ${STATE}
+      for g in /sys/devices/system/cpu/cpufreq/policy*/scaling_governor \
+               /sys/class/devfreq/*/governor; do
+        [ -f "${g}" ] && echo "${g} $(cat ${g})" >> ${STATE}
+      done
+      ;;
+    restore)
+      [ -f ${STATE} ] || return 0
+      while read -r gpath gvalue; do
+        [ -f "${gpath}" ] && echo "${gvalue}" > "${gpath}" 2>/dev/null
+      done < ${STATE}
+      rm -f ${STATE}
+      ;;
+  esac
+}
+
+backlight_off() {
+  # Blank before the kernel path runs so a slow suspend never leaves the
+  # panel lit; the post branch restores the saved user setting below.
+  for bl in /sys/class/backlight/*/brightness; do
+    [ -f "${bl}" ] && echo 0 > "${bl}" 2>/dev/null
+  done
+}
+
 quirks() {
   for QUIRK in /usr/lib/autostart/quirks/platforms/"${HW_DEVICE}"/sleep.d/${1}/* \
                /usr/lib/autostart/quirks/devices/"${QUIRK_DEVICE}"/sleep.d/${1}/*; do
@@ -93,12 +139,17 @@ case $1 in
     bluetooth stop
     powerstate stop
     modules stop
+    backlight_off
+    alsastate store
+    governors save
     quirks pre
     touch /run/.last_sleep_time
     ;;
   post)
     ledcontrol
     modules start
+    governors restore
+    alsastate restore
     powerstate start
     headphones start
     inputsense start

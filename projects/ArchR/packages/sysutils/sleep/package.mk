@@ -13,6 +13,13 @@ PKG_TOOLCHAIN="manual"
 makeinstall_target() {
 	mkdir -p ${INSTALL}/usr/config/sleep.conf.d
 	cp sleep.conf ${INSTALL}/usr/config/sleep.conf.d/sleep.conf
+	if [ "${DEVICE}" = "RK3326" ]; then
+	  # px30 mainline has no working S3: with the stock order the kernel
+	  # tries "mem" first and the console hangs instead of sleeping. Land
+	  # on s2idle directly; the PMIC pwrkey is a wakeup-source in every
+	  # board DTS so the power button wakes it back up.
+	  sed -i 's/^SuspendState=.*/SuspendState=freeze/' ${INSTALL}/usr/config/sleep.conf.d/sleep.conf
+	fi
         cp modules.bad ${INSTALL}/usr/config
 
 	mkdir -p ${INSTALL}/usr/lib/systemd/system-sleep/
