@@ -46,3 +46,14 @@ makeinstall_target() {
   cp ${PKG_DIR}/sources/config/fancontrol.conf ${INSTALL}/usr/config/fancontrol.conf.sample
 }
 
+
+post_install() {
+  # input_sense owns the power-button path on RK3326 (KEY_POWER from the
+  # rk817 pwrkey drives archr-fake-suspend) and the R33S/RG351 quirks
+  # already assume the unit is running, yet nothing ever enabled it, so
+  # the power button only reached logind's (broken) kernel suspend.
+  # Scoped to RK3326 until other platforms verify their key handling.
+  if [ "${DEVICE}" = "RK3326" ]; then
+    enable_service input.service
+  fi
+}
