@@ -66,14 +66,14 @@ display_off() {
     elif echo "${UI_SERVICE}" | grep "weston"; then
       weston-dpms -m off
     fi
-  else
-    # DPMS disabled, just turn off the backlight
-    ${DEBUG} && log $0 "Backlight off"
-
-    for BL_POWER_DEVICE in "${BL_POWER_DEVICES[@]}"; do
-      echo 4 > "${BL_POWER_DEVICE}"
-    done
   fi
+  # Always cut the backlight too: the compositor path blanks the
+  # framebuffer but can leave the panel backlight powered (black yet
+  # lit screen), which wastes most of the display power budget.
+  ${DEBUG} && log $0 "Backlight off"
+  for BL_POWER_DEVICE in "${BL_POWER_DEVICES[@]}"; do
+    echo 4 > "${BL_POWER_DEVICE}"
+  done
 }
 
 display_on() {
@@ -87,14 +87,11 @@ display_on() {
     elif echo "${UI_SERVICE}" | grep "weston"; then
       weston-dpms -m on
     fi
-  else
-    # DPMS disabled, just turn on the backlight
-    ${DEBUG} && log $0 "Backlight on"
-
-    for BL_POWER_DEVICE in "${BL_POWER_DEVICES[@]}"; do
-      echo 0 > "${BL_POWER_DEVICE}"
-    done
   fi
+  ${DEBUG} && log $0 "Backlight on"
+  for BL_POWER_DEVICE in "${BL_POWER_DEVICES[@]}"; do
+    echo 0 > "${BL_POWER_DEVICE}"
+  done
 }
 
 mute_audio() {
