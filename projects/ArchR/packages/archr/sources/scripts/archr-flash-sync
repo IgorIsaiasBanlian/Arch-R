@@ -97,6 +97,11 @@ fi
 if [ -d "${SRC}/device_trees" ] && [ -d "${BOOT}/dtbs" ]; then
   for dtb in "${SRC}/device_trees/"*.dtb; do
     [ -f "${dtb}" ] || continue
+    # Update only DTBs the image already ships: config.xml curates the
+    # per-image DTB list (the clone image carries boards the original
+    # image deliberately leaves out), so adding files here would undo
+    # that curation. Content never diverges for same-named DTBs.
+    [ -f "${BOOT}/dtbs/$(basename "${dtb}")" ] || continue
     sync_file "${dtb}" "${BOOT}/dtbs/$(basename "${dtb}")"
   done
 fi
