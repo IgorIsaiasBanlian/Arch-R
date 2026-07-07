@@ -1,0 +1,199 @@
+{
+  "name": "XU Mini M Gamepad",
+  "vendor": 50096,
+  "product": 512,
+  "version": 16,
+  "buses": [
+    25
+  ],
+  "sdl_mapping": "platform:Linux,x:b2,a:b1,b:b0,y:b3,back:b8,guide:b16,start:b9,dpleft:b14,dpdown:b13,dpright:b15,dpup:b12,leftshoulder:b4,lefttrigger:b6,rightshoulder:b5,righttrigger:b7,leftstick:b10,rightstick:b11,leftx:a0,lefty:a1,rightx:a2,righty:a3,",
+  "retroarch": {
+    "input_driver": "udev",
+    "input_device": "XU Mini M Gamepad",
+    "input_device_display_name": "MagicX XU Mini M Gamepad",
+    "input_b_btn": "0",
+    "input_y_btn": "3",
+    "input_select_btn": "8",
+    "input_start_btn": "9",
+    "input_up_btn": "12",
+    "input_down_btn": "13",
+    "input_left_btn": "14",
+    "input_right_btn": "15",
+    "input_a_btn": "1",
+    "input_x_btn": "2",
+    "input_l_btn": "4",
+    "input_r_btn": "5",
+    "input_l2_btn": "6",
+    "input_r2_btn": "7",
+    "input_l3_btn": "10",
+    "input_r3_btn": "11",
+    "input_l_x_plus_axis": "+1",
+    "input_l_x_minus_axis": "-1",
+    "input_l_y_plus_axis": "-0",
+    "input_l_y_minus_axis": "+0",
+    "input_r_x_plus_axis": "+3",
+    "input_r_x_minus_axis": "-3",
+    "input_r_y_plus_axis": "-2",
+    "input_r_y_minus_axis": "+2",
+    "input_enable_hotkey_btn": "16",
+    "input_exit_emulator_btn": "9",
+    "input_menu_toggle_btn": "2",
+    "input_fps_toggle_btn": "3",
+    "input_load_state_btn": "4",
+    "input_save_state_btn": "5",
+    "input_rewind_btn": "6",
+    "input_toggle_fast_forward_btn": "7"
+  },
+  "es_inputs": [
+    {
+      "name": "a",
+      "type": "button",
+      "id": "1",
+      "value": "1"
+    },
+    {
+      "name": "b",
+      "type": "button",
+      "id": "0",
+      "value": "1"
+    },
+    {
+      "name": "down",
+      "type": "button",
+      "id": "13",
+      "value": "1"
+    },
+    {
+      "name": "hotkeyenable",
+      "type": "button",
+      "id": "16",
+      "value": "1"
+    },
+    {
+      "name": "left",
+      "type": "button",
+      "id": "14",
+      "value": "1"
+    },
+    {
+      "name": "leftanalogdown",
+      "type": "axis",
+      "id": "0",
+      "value": "-1"
+    },
+    {
+      "name": "leftanalogleft",
+      "type": "axis",
+      "id": "1",
+      "value": "-1"
+    },
+    {
+      "name": "leftanalogright",
+      "type": "axis",
+      "id": "1",
+      "value": "1"
+    },
+    {
+      "name": "leftanalogup",
+      "type": "axis",
+      "id": "0",
+      "value": "1"
+    },
+    {
+      "name": "leftshoulder",
+      "type": "button",
+      "id": "4",
+      "value": "1"
+    },
+    {
+      "name": "leftthumb",
+      "type": "button",
+      "id": "10",
+      "value": "1"
+    },
+    {
+      "name": "lefttrigger",
+      "type": "button",
+      "id": "6",
+      "value": "1"
+    },
+    {
+      "name": "right",
+      "type": "button",
+      "id": "15",
+      "value": "1"
+    },
+    {
+      "name": "rightanalogdown",
+      "type": "axis",
+      "id": "2",
+      "value": "-1"
+    },
+    {
+      "name": "rightanalogleft",
+      "type": "axis",
+      "id": "3",
+      "value": "-1"
+    },
+    {
+      "name": "rightanalogright",
+      "type": "axis",
+      "id": "3",
+      "value": "1"
+    },
+    {
+      "name": "rightanalogup",
+      "type": "axis",
+      "id": "2",
+      "value": "1"
+    },
+    {
+      "name": "rightshoulder",
+      "type": "button",
+      "id": "5",
+      "value": "1"
+    },
+    {
+      "name": "rightthumb",
+      "type": "button",
+      "id": "11",
+      "value": "1"
+    },
+    {
+      "name": "righttrigger",
+      "type": "button",
+      "id": "7",
+      "value": "1"
+    },
+    {
+      "name": "select",
+      "type": "button",
+      "id": "8",
+      "value": "1"
+    },
+    {
+      "name": "start",
+      "type": "button",
+      "id": "9",
+      "value": "1"
+    },
+    {
+      "name": "up",
+      "type": "button",
+      "id": "12",
+      "value": "1"
+    },
+    {
+      "name": "x",
+      "type": "button",
+      "id": "2",
+      "value": "1"
+    },
+    {
+      "name": "y",
+      "type": "button",
+      "id": "3",
+      "value": "1"
+    }
+  ]
+}

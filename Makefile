@@ -118,7 +118,12 @@ docker-image-pull:
 # Runs host-side on purpose: the website repo is not mounted into the build
 # container. The sync script is itself non-fatal, and the guard keeps it off
 # non-build docker targets (docker-shell, docker-update, ...).
+# Before any docker build, fail fast if the three shipped input-config
+# artifacts drifted from the per-pad definitions (see projects/ArchR/inputs).
+# Verification only: the build never rewrites the artifacts by itself.
 docker-%:
+	@./projects/ArchR/inputs/gen-input-configs verify >/dev/null || \
+	  { ./projects/ArchR/inputs/gen-input-configs verify; exit 1; }
 	./scripts/get_env > .env
 	BUILD_DIR="$(DOCKER_WORK_DIR)" $(DOCKER_CMD) run $(PODMAN_ARGS) $(INTERACTIVE) --init --env-file .env --rm --user $(UID):$(GID) $(GLOBAL_SETTINGS) $(LOCAL_SSH_KEYS_FILE) $(EMULATIONSTATION_SRC) -v "$(PWD)":"$(DOCKER_WORK_DIR)" -v /tmp:/tmp -w "$(DOCKER_WORK_DIR)" $(DOCKER_EXTRA_OPTS) $(DOCKER_IMAGE) $(COMMAND)
 	@if [ "$*" = "RK3326" ]; then ./scripts/repo/sync-site-bases; fi

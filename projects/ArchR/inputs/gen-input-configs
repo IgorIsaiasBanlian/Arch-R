@@ -1,0 +1,365 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2026-present ArchR (https://github.com/archr-linux/Arch-R)
+#
+# Single source of truth for the built-in gamepad configs.
+#
+# Every platform pad historically needed THREE hand-maintained files:
+#   1. es_input.cfg               (EmulationStation)
+#   2. retroarch-joypads/gamepads/<name>.cfg  (RetroArch udev autoconfig)
+#   3. gamecontrollerdb.txt       (SDL games and ports)
+# and nothing checked they agreed. The Soysauce pad shipped with only
+# two of the three, so SDL ports saw no controller at all.
+#
+# This tool keeps one JSON definition per pad in defs/ and can:
+#   verify   compare defs against the three shipped artifacts (CI check)
+#   write    regenerate the managed sections of the artifacts from defs
+#   import   bootstrap a def from the current artifacts (migration aid)
+#   guid     print the SDL GUIDs a given identity produces
+#
+# SDL GUID layout (SDL2 >= 2.26, matches what the devices report at
+# runtime): bus u16 LE + crc16-ARC(name) u16 LE, then
+#   vendor and product both non-zero:
+#       vendor LE, 0000, product LE, 0000, version LE, 0000
+#   otherwise (vendor*product == 0):
+#       first 11 bytes of the name, zero padded
+# The second form matters: the Soysauce pad reports vendor 0, so its
+# real GUID embeds the name ("GO-Super Ga"), not the product id.
+#
+# Round-trip fidelity (documented, deliberate):
+#   gamecontrollerdb line : byte-exact (GUID recomputed from identity,
+#                           mapping stored verbatim)
+#   retroarch cfg         : semantic (key = value set; comments, blank
+#                           lines and ordering are not modeled)
+#   es_input block        : semantic (device attrs + set of <input>
+#                           tuples; the legacy file mixes tabs/spaces)
+
+import json
+import os
+import re
+import sys
+import argparse
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
+DEFS = os.path.join(HERE, 'defs')
+
+ES_INPUT = os.path.join(
+    ROOT, 'projects/ArchR/packages/ui/emulationstation/config/common/es_input.cfg')
+RA_DIR = os.path.join(
+    ROOT, 'projects/ArchR/packages/emulators/libretro/retroarch/retroarch-joypads/gamepads')
+GCDB = os.path.join(
+    ROOT, 'projects/ArchR/packages/apps/gamecontrollerdb/config/gamecontrollerdb.txt')
+
+
+# ---------------------------------------------------------------------------
+# GUID machinery
+# ---------------------------------------------------------------------------
+
+def crc16_arc(data: bytes) -> int:
+    crc = 0
+    for b in data:
+        crc ^= b
+        for _ in range(8):
+            crc = (crc >> 1) ^ 0xA001 if crc & 1 else crc >> 1
+    return crc
+
+
+def _u16le(v):
+    return bytes((v & 0xff, (v >> 8) & 0xff))
+
+
+def sdl_guid(name, bus, vendor, product, version):
+    head = _u16le(bus) + _u16le(crc16_arc(name.encode()))
+    if vendor and product:
+        body = (_u16le(vendor) + b'\x00\x00' + _u16le(product) + b'\x00\x00'
+                + _u16le(version) + b'\x00\x00')
+    else:
+        body = name.encode()[:11].ljust(12, b'\x00')
+    return (head + body).hex()
+
+
+def guids_for(pad):
+    return [sdl_guid(pad['name'], bus, pad['vendor'], pad['product'],
+                     pad['version']) for bus in pad['buses']]
+
+
+# ---------------------------------------------------------------------------
+# Artifact parsing
+# ---------------------------------------------------------------------------
+
+def parse_retroarch_cfg(text):
+    out = {}
+    for line in text.splitlines():
+        m = re.match(r'^\s*([A-Za-z0-9_]+)\s*=\s*"(.*)"\s*$', line)
+        if m:
+            out[m.group(1)] = m.group(2)
+    return out
+
+
+_ES_BLOCK = re.compile(
+    r'<inputConfig[^>]*deviceGUID="(?P<guid>[0-9a-fA-F]{32})"[^>]*>'
+    r'(?P<body>.*?)</inputConfig>', re.S)
+_ES_ATTR = re.compile(r'(\w+)="([^"]*)"')
+
+
+def es_blocks(text):
+    """guid -> (deviceName, set of (name,type,id,value), full block span)."""
+    blocks = {}
+    for m in _ES_BLOCK.finditer(text):
+        head = text[m.start():text.index('>', m.start()) + 1]
+        attrs = dict(_ES_ATTR.findall(head))
+        inputs = set()
+        for im in re.finditer(r'<input\s+([^/>]*)/>', m.group('body')):
+            a = dict(_ES_ATTR.findall(im.group(1)))
+            inputs.add((a.get('name'), a.get('type'), a.get('id'), a.get('value')))
+        blocks[m.group('guid').lower()] = (attrs.get('deviceName'), inputs,
+                                           (m.start(), m.end()))
+    return blocks
+
+
+def gcdb_lines(text):
+    """name -> {guid: full line}"""
+    out = {}
+    for line in text.splitlines():
+        if not line or line.startswith('#'):
+            continue
+        parts = line.split(',', 2)
+        if len(parts) < 3:
+            continue
+        out.setdefault(parts[1], {})[parts[0].lower()] = line
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Generation from a definition
+# ---------------------------------------------------------------------------
+
+def gen_gcdb_line(pad, guid):
+    # sdl_mapping is a plain string, or a {guid: mapping} dict when the
+    # shipped lines genuinely differ per bus (retrogame_joypad's 0x19
+    # line carries guide:b10, its 0x03 line does not).
+    m = pad['sdl_mapping']
+    if isinstance(m, dict):
+        m = m[guid]
+    return f"{guid},{pad['name']},{m}"
+
+
+def gen_retroarch_text(pad):
+    ra = pad['retroarch']
+    ident = ['input_driver', 'input_device', 'input_device_display_name',
+             'input_vendor_id', 'input_product_id']
+    lines = [f'{k} = "{ra[k]}"' for k in ident if k in ra]
+    lines += [f'{k} = "{ra[k]}"' for k in sorted(ra) if k not in ident]
+    return '\n'.join(lines) + '\n'
+
+
+def gen_es_block(pad, guid, indent='    '):
+    rows = sorted(pad['es_inputs'], key=lambda r: r['name'])
+    out = [f'{indent}<inputConfig type="joystick" deviceName="{pad["name"]}" '
+           f'deviceGUID="{guid}">']
+    for r in rows:
+        out.append(f'{indent}    <input name="{r["name"]}" type="{r["type"]}" '
+                   f'id="{r["id"]}" value="{r["value"]}" />')
+    out.append(f'{indent}</inputConfig>')
+    return '\n'.join(out)
+
+
+# ---------------------------------------------------------------------------
+# Subcommands
+# ---------------------------------------------------------------------------
+
+def load_defs(names=None):
+    pads = []
+    for f in sorted(os.listdir(DEFS)):
+        if not f.endswith('.json'):
+            continue
+        pad = json.load(open(os.path.join(DEFS, f)))
+        if names and pad['name'] not in names:
+            continue
+        pads.append(pad)
+    return pads
+
+
+def cmd_verify(args):
+    pads = load_defs(args.names)
+    gcdb = gcdb_lines(open(GCDB).read())
+    es = es_blocks(open(ES_INPUT).read())
+    failed = False
+
+    def bad(msg):
+        nonlocal failed
+        failed = True
+        print(f'DRIFT  {msg}')
+
+    for pad in pads:
+        name = pad['name']
+        guids = guids_for(pad)
+        if pad.get('guid_override'):
+            guids = pad['guid_override']
+
+        # 1. gamecontrollerdb: byte-exact line per GUID
+        have = gcdb.get(name, {})
+        for g in guids:
+            want = gen_gcdb_line(pad, g)
+            if g not in have:
+                bad(f'{name}: gamecontrollerdb missing GUID {g}')
+            elif have[g] != want:
+                bad(f'{name}: gamecontrollerdb line differs for {g}\n'
+                    f'  have: {have[g]}\n  want: {want}')
+        for g in have:
+            if g not in guids:
+                bad(f'{name}: gamecontrollerdb has stale GUID {g}')
+
+        # 2. retroarch cfg: semantic key=value equality
+        ra_path = os.path.join(RA_DIR, f'{name}.cfg')
+        if not os.path.exists(ra_path):
+            bad(f'{name}: retroarch cfg missing ({ra_path})')
+        else:
+            have_ra = parse_retroarch_cfg(open(ra_path).read())
+            want_ra = pad['retroarch']
+            for k in sorted(set(have_ra) | set(want_ra)):
+                if have_ra.get(k) != want_ra.get(k):
+                    bad(f'{name}: retroarch {k}: '
+                        f'have {have_ra.get(k)!r} want {want_ra.get(k)!r}')
+
+        # 3. es_input: semantic block per GUID
+        want_es = {(r['name'], r['type'], str(r['id']), str(r['value']))
+                   for r in pad['es_inputs']}
+        for g in guids:
+            if g not in es:
+                bad(f'{name}: es_input block missing for GUID {g}')
+                continue
+            dev, have_es, _ = es[g]
+            if dev != name:
+                bad(f'{name}: es_input deviceName is {dev!r} for {g}')
+            if have_es != want_es:
+                bad(f'{name}: es_input inputs differ for {g}: '
+                    f'only-in-file {sorted(have_es - want_es)} '
+                    f'only-in-def {sorted(want_es - have_es)}')
+
+        if not failed:
+            print(f'OK     {name} ({len(guids)} guid)')
+    return 1 if failed else 0
+
+
+def cmd_write(args):
+    pads = load_defs(args.names)
+
+    gcdb_text = open(GCDB).read()
+    name_lines = gcdb_lines(gcdb_text)
+    lines = gcdb_text.splitlines()
+    for pad in pads:
+        guids = pad.get('guid_override') or guids_for(pad)
+        wanted = {g: gen_gcdb_line(pad, g) for g in guids}
+        old = set(name_lines.get(pad['name'], {}).values())
+        lines = [l for l in lines if l not in old or l in wanted.values()]
+        present = set(lines)
+        for g, l in wanted.items():
+            if l not in present:
+                lines.append(l)
+    open(GCDB, 'w').write('\n'.join(lines).rstrip('\n') + '\n')
+
+    for pad in pads:
+        ra_path = os.path.join(RA_DIR, f"{pad['name']}.cfg")
+        open(ra_path, 'w').write(gen_retroarch_text(pad))
+
+    es_text = open(ES_INPUT).read()
+    for pad in pads:
+        guids = pad.get('guid_override') or guids_for(pad)
+        for g in guids:
+            blocks = es_blocks(es_text)
+            new_block = gen_es_block(pad, g)
+            if g in blocks:
+                s, e = blocks[g][2]
+                # keep the original leading indentation of the block
+                ls = es_text.rfind('\n', 0, s) + 1
+                indent = es_text[ls:s]
+                new_block = gen_es_block(pad, g, indent=indent or '    ')
+                es_text = es_text[:ls] + new_block + es_text[e:]
+            else:
+                end = es_text.rindex('</inputList>')
+                es_text = es_text[:end] + new_block + '\n' + es_text[end:]
+    open(ES_INPUT, 'w').write(es_text)
+    print(f'wrote {len(pads)} pad(s)')
+    return 0
+
+
+def cmd_import(args):
+    gcdb = gcdb_lines(open(GCDB).read())
+    es = es_blocks(open(ES_INPUT).read())
+    for name in args.names:
+        entry = gcdb.get(name)
+        if not entry:
+            print(f'skip {name}: not in gamecontrollerdb')
+            continue
+        guids = sorted(entry)
+        # identity from the first numeric-form GUID, else name-form
+        vendor = product = version = 0
+        buses = []
+        for g in guids:
+            raw = bytes.fromhex(g)
+            buses.append(raw[0] | raw[1] << 8)
+            body = raw[4:]
+            if body[:11] == name.encode()[:11].ljust(11, b'\x00')[:11]:
+                continue
+            vendor = raw[4] | raw[5] << 8
+            product = raw[8] | raw[9] << 8
+            version = raw[12] | raw[13] << 8
+        pad = {
+            'name': name,
+            'vendor': vendor, 'product': product, 'version': version,
+            'buses': sorted(set(buses)),
+            'sdl_mapping': (entry[guids[0]].split(',', 2)[2]
+                            if len({l.split(',', 2)[2] for l in entry.values()}) == 1
+                            else {g: entry[g].split(',', 2)[2] for g in guids}),
+        }
+        # cross-check: do the recomputed GUIDs reproduce the file?
+        recomputed = set(guids_for(pad))
+        if recomputed != set(guids):
+            pad['guid_override'] = guids
+            print(f'note {name}: GUIDs not reproducible from identity, '
+                  f'stored verbatim ({guids} vs {sorted(recomputed)})')
+        ra_path = os.path.join(RA_DIR, f'{name}.cfg')
+        pad['retroarch'] = (parse_retroarch_cfg(open(ra_path).read())
+                            if os.path.exists(ra_path) else {})
+        rows = []
+        for g in guids:
+            if g in es:
+                rows = [{'name': n, 'type': t, 'id': i, 'value': v}
+                        for (n, t, i, v) in sorted(es[g][1])]
+                break
+        pad['es_inputs'] = rows
+        out = os.path.join(DEFS, re.sub(r'[^A-Za-z0-9._-]', '_', name) + '.json')
+        json.dump(pad, open(out, 'w'), indent=2, ensure_ascii=False)
+        open(out, 'a').write('\n')
+        print(f'imported {name} -> {os.path.relpath(out, HERE)} '
+              f'({len(guids)} guid, {len(rows)} es inputs, '
+              f'{len(pad["retroarch"])} ra keys)')
+    return 0
+
+
+def cmd_guid(args):
+    print(sdl_guid(args.name, args.bus, args.vendor, args.product, args.version))
+    return 0
+
+
+def main():
+    p = argparse.ArgumentParser(description=__doc__)
+    sub = p.add_subparsers(dest='cmd', required=True)
+    for c in ('verify', 'write', 'import'):
+        sp = sub.add_parser(c)
+        sp.add_argument('names', nargs='*' if c != 'import' else '+')
+    g = sub.add_parser('guid')
+    g.add_argument('name')
+    g.add_argument('--bus', type=lambda x: int(x, 0), default=0x19)
+    g.add_argument('--vendor', type=lambda x: int(x, 0), default=0)
+    g.add_argument('--product', type=lambda x: int(x, 0), default=0)
+    g.add_argument('--version', type=lambda x: int(x, 0), default=0)
+    args = p.parse_args()
+    return {'verify': cmd_verify, 'write': cmd_write,
+            'import': cmd_import, 'guid': cmd_guid}[args.cmd](args)
+
+
+if __name__ == '__main__':
+    sys.exit(main())
