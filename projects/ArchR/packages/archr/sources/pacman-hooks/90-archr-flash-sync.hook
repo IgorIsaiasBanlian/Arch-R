@@ -1,0 +1,15 @@
+# Sync the kernel and device trees delivered by pacman into the FAT
+# boot partition (/flash), so kernel-side fixes reach users through the
+# normal update flow. See /usr/bin/archr-flash-sync for the safety
+# model; u-boot/TPL stays image-flash only.
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Path
+Target = usr/share/bootloader/Image
+Target = usr/share/bootloader/device_trees/*
+
+[Action]
+Description = Syncing kernel and device trees to the boot partition...
+When = PostTransaction
+Exec = /usr/bin/archr-flash-sync

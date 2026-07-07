@@ -1,0 +1,111 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2026-present ArchR (https://github.com/archr-linux/Arch-R)
+#
+# archr-flash-sync: bring the boot partition (FAT, /flash) in line with
+# the kernel and device trees shipped in the rootfs. This is what lets
+# kernel and DTB fixes flow through `pacman -Syu` / the ES update menu
+# instead of demanding a reflash: the linux package delivers the new
+# files under /usr/share/bootloader and an alpm PostTransaction hook
+# runs this script to copy the changed ones over.
+#
+# Safety model: each target is written as <name>.new in the same FAT
+# directory, synced, read back and hash-verified, then renamed over the
+# old file. The window where a power cut leaves a torn file is the
+# rename itself, the smallest FAT allows. Anything user-owned on the
+# FAT is never touched: /flash/overlays (the user's mipi-panel.dtbo),
+# extlinux/, boot.scr, boot.ini.
+#
+# u-boot/TPL (idbloader) stays OUT of scope on purpose: it lives in raw
+# sectors before the first partition and a torn write there bricks the
+# card with no recovery besides a reflash. Bootloader updates remain
+# image-flash only.
+
+SRC="/usr/share/bootloader"
+BOOT="/flash"
+
+log() { echo "flash-sync: $*"; }
+
+if [ ! -d "${BOOT}" ] || ! grep -q " ${BOOT} " /proc/mounts; then
+  log "no boot partition mounted at ${BOOT}, nothing to do"
+  exit 0
+fi
+
+if ! mount -o remount,rw "${BOOT}" 2>/dev/null; then
+  log "WARN: could not remount ${BOOT} read-write, skipping"
+  exit 0
+fi
+
+finish() {
+  sync
+  mount -o remount,ro "${BOOT}" 2>/dev/null
+}
+trap finish EXIT
+
+CHANGED=0
+FAILED=0
+
+# sync_file <src> <dst>: copy only when the content differs, via a
+# verified temp file in the destination directory.
+sync_file() {
+  s="$1"
+  d="$2"
+  [ -f "${s}" ] || return 0
+
+  src_sum=$(sha256sum "${s}" | cut -d' ' -f1)
+  if [ -f "${d}" ]; then
+    dst_sum=$(sha256sum "${d}" | cut -d' ' -f1)
+    [ "${src_sum}" = "${dst_sum}" ] && return 0
+  fi
+
+  tmp="${d}.new"
+  if ! cp "${s}" "${tmp}" 2>/dev/null; then
+    log "ERROR: writing ${tmp} failed (FAT full?)"
+    rm -f "${tmp}" 2>/dev/null
+    FAILED=1
+    return 1
+  fi
+  sync
+  new_sum=$(sha256sum "${tmp}" | cut -d' ' -f1)
+  if [ "${new_sum}" != "${src_sum}" ]; then
+    log "ERROR: verify of ${tmp} failed, keeping the old file"
+    rm -f "${tmp}" 2>/dev/null
+    FAILED=1
+    return 1
+  fi
+  mv -f "${tmp}" "${d}"
+  sync
+  log "updated ${d}"
+  CHANGED=1
+  return 0
+}
+
+# Kernel: /usr/share/bootloader/Image -> /flash/KERNEL. Refresh the
+# sidecar md5 too (legacy .update flow reads it with the target/KERNEL
+# name baked in).
+if [ -f "${SRC}/Image" ]; then
+  if sync_file "${SRC}/Image" "${BOOT}/KERNEL" && [ "${CHANGED}" = "1" ]; then
+    md5=$(md5sum "${BOOT}/KERNEL" | cut -d' ' -f1)
+    printf '%s  target/KERNEL\n' "${md5}" > "${BOOT}/KERNEL.md5" 2>/dev/null
+  fi
+else
+  log "no ${SRC}/Image in this rootfs (older build), kernel left alone"
+fi
+
+# Device trees: only into the dtbs/ dir the image layout uses. The
+# user's panel overlay lives in /flash/overlays and is never touched.
+if [ -d "${SRC}/device_trees" ] && [ -d "${BOOT}/dtbs" ]; then
+  for dtb in "${SRC}/device_trees/"*.dtb; do
+    [ -f "${dtb}" ] || continue
+    sync_file "${dtb}" "${BOOT}/dtbs/$(basename "${dtb}")"
+  done
+fi
+
+if [ "${FAILED}" = "1" ]; then
+  log "finished WITH ERRORS, the untouched files remain bootable"
+elif [ "${CHANGED}" = "1" ]; then
+  log "boot partition updated, changes take effect on the next boot"
+else
+  log "boot partition already up to date"
+fi
+exit 0

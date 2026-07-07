@@ -139,7 +139,10 @@ EOF
         filelist="$(mktemp)"
         {
             echo ".PKGINFO"
-            find . -mindepth 1 -maxdepth 1 -not -name '.PKGINFO' -printf '%P\n'
+            # .image is build-system plumbing (raw kernel + symbols the
+            # image script consumes); shipping it would dump ~25MB at
+            # /.image on every kernel update for nothing.
+            find . -mindepth 1 -maxdepth 1 -not -name '.PKGINFO' -not -name '.image' -printf '%P\n'
         } > "${filelist}"
         tar --zstd -cf "${outfile}" --owner=0 --group=0 -T "${filelist}"
         rm -f "${filelist}"

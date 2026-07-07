@@ -378,6 +378,11 @@ makeinstall_target() {
 
   if [ "${BOOTLOADER}" = "u-boot" ]; then
     mkdir -p ${INSTALL}/usr/share/bootloader
+    # Ship the kernel image in the rootfs as well: pacman carries it to
+    # updated systems and archr-flash-sync copies it over /flash/KERNEL
+    # (the FAT copy u-boot actually boots). Fresh images stay in sync by
+    # construction; this closes the update-without-reflash path.
+    cp -p arch/${TARGET_KERNEL_ARCH}/boot/${KERNEL_TARGET} ${INSTALL}/usr/share/bootloader/
     for dtb in arch/${TARGET_KERNEL_ARCH}/boot/dts/**/*.dtb; do
       if [ -f ${dtb} ]; then
         if [ "${DEVICE}" = "H700" -o "${DEVICE}" = "RK3326" -o "${DEVICE}" = "RK3399" -o "${DEVICE}" = "RK3566" -o "${DEVICE}" = "RK3588" ]; then

@@ -146,6 +146,12 @@ EOF
   cp ${PKG_DIR}/sources/scripts/* ${INSTALL}/usr/bin
   chmod 0755 ${INSTALL}/usr/bin/* 2>/dev/null ||:
 
+  # alpm hooks (pacman.conf points HookDir at /etc/pacman.d/hooks): the
+  # flash-sync hook keeps the FAT boot partition in step with kernel or
+  # DTB updates delivered through pacman.
+  mkdir -p ${INSTALL}/etc/pacman.d/hooks
+  cp ${PKG_DIR}/sources/pacman-hooks/*.hook ${INSTALL}/etc/pacman.d/hooks
+
   ### Install man pages
   if [ -d "${PKG_DIR}/sources/man" ]; then
     for page in ${PKG_DIR}/sources/man/*.[1-9]; do
