@@ -2,6 +2,7 @@
 
 PKG_NAME="system-utils"
 PKG_VERSION=""
+PKG_REV="2"
 PKG_LICENSE="mix"
 PKG_DEPENDS_TARGET="toolchain sleep"
 PKG_SITE=""
