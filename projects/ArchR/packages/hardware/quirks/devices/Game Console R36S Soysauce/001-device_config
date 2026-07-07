@@ -8,6 +8,10 @@
 # exactly, so this folder name MUST equal the DTS `model` string. Audio
 # routing and LED config are intentionally left to the working defaults.
 cat <<CONF >/storage/.config/profile.d/001-device_config
+# Surfaces the DISABLE POWER LED switch in ES (the var is already in
+# the 999-export allowlist; no quirk ever set it, so the item was
+# invisible on every device).
+DEVICE_PWR_LED_CONTROL="true"
 DEVICE_TEMP_SENSOR="/sys/devices/virtual/thermal/thermal_zone0/temp"
 DEVICE_GPU_TEMP_SENSOR="/sys/devices/virtual/thermal/thermal_zone1/temp"
 # Headphone/speaker switching (headphone_sense). The rk817 ext-amplifier patch

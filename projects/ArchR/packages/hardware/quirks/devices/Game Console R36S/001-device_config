@@ -8,6 +8,10 @@ DEVICE_PLAYBACK_PATH_SPK="HP"
 DEVICE_PLAYBACK_PATH_HP="SPK"
 # Bicolor power LED on one line (GPIO2_B5, BSP gpio77): sysfs red:status;
 # brightness 1 = red, 0 = the green side. There is no hardware off.
+# Surfaces the DISABLE POWER LED switch in ES (the var is already in
+# the 999-export allowlist; no quirk ever set it, so the item was
+# invisible on every device).
+DEVICE_PWR_LED_CONTROL="true"
 DEVICE_POWER_LED="red:status"
 DEVICE_TEMP_SENSOR="/sys/devices/virtual/thermal/thermal_zone0/temp"
 # thermal_zone1 is the gpu-thermal IP — System Information shows the

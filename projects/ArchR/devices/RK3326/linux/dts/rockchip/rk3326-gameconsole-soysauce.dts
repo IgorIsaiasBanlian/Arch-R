@@ -24,20 +24,19 @@
 		this = "soysauce";
 	};
 
-	/* LED indicators (soysauce-specific) */
+	/* LED indicators (soysauce-specific). Only the blue power LED is
+	 * GPIO-driven; the red one is hardwired to the charger IC (toggling
+	 * the old led-red node on GPIO0_A5 did nothing on hardware, so the
+	 * node was a phantom and got dropped). The line is active HIGH:
+	 * declaring it active low inverted the whole ES power LED menu
+	 * (off lit the LED, on darkened it, heartbeat looked normal). */
 	leds {
 		compatible = "gpio-leds";
 
-		led-red {
-			gpios = <&gpio0 RK_PA5 GPIO_ACTIVE_LOW>;
-			label = "red";
-			default-state = "off";
-		};
-
 		led-blue {
-			gpios = <&gpio0 RK_PA0 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio0 RK_PA0 GPIO_ACTIVE_HIGH>;
 			label = "blue";
-			default-state = "off";
+			default-state = "on";
 		};
 	};
 
