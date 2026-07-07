@@ -5,8 +5,7 @@
 # Minimal per-device config: wire up the temperature sensors so System
 # Information (archr-info) and EmulationStation show CPU/GPU temps. The
 # quirks loader matches the folder name against /proc/device-tree/model
-# exactly, so this folder name MUST equal the DTS `model` string. Audio
-# routing and LED config are intentionally left to the working defaults.
+# exactly, so this folder name MUST equal the DTS `model` string.
 cat <<CONF >/storage/.config/profile.d/001-device_config
 # LED nodes use color+function (no label), so sysfs is blue:power.
 # Surfaces the DISABLE POWER LED switch in ES (the var is already in
@@ -14,6 +13,13 @@ cat <<CONF >/storage/.config/profile.d/001-device_config
 # invisible on every device).
 DEVICE_PWR_LED_CONTROL="true"
 DEVICE_POWER_LED="blue:power"
+# V20-era clone boards route the speaker through the external amp like
+# the Soysauce (the eeclone DTS ships the rk817-sound-amplified card),
+# so the playback mux and the jack input device must be wired up or the
+# speaker stays silent (Arch-R#35, config validated by reporters).
+DEVICE_PLAYBACK_PATH_SPK="SPK"
+DEVICE_PLAYBACK_PATH_HP="HP"
+DEVICE_HEADPHONE_DEV="/dev/input/by-path/platform-rk817-sound-amplified-event"
 DEVICE_TEMP_SENSOR="/sys/devices/virtual/thermal/thermal_zone0/temp"
 DEVICE_GPU_TEMP_SENSOR="/sys/devices/virtual/thermal/thermal_zone1/temp"
 CONF

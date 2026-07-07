@@ -1,11 +1,22 @@
 # Force the out-of-tree r8188eu driver for RTL8188EUS dongles, instead
 # of the in-tree rtl8xxxu (which scans but can't complete WPA2 4-way
-# handshake on this chip — see archr-linux/Arch-R#19).
+# handshake on this chip, see archr-linux/Arch-R#19).
 #
 # rtl8xxxu is loaded for many other RTL chips and we don't want to
 # blacklist it globally. Instead, this rule catches the 8188EUS USB
-# IDs at hotplug time, unbinds rtl8xxxu from the interface, and
-# (re)loads 8188eu.
+# IDs and moves the network interface over to 8188eu.
+#
+# The first shipped version of this rule matched the usb_device event
+# and echoed the device name (e.g. "1-1") into rtl8xxxu's unbind node.
+# That never worked: USB drivers bind to the *interface* ("1-1:1.0"),
+# and at usb_device add time no driver is bound yet anyway, while a
+# plain modprobe never rebinds an interface another driver already
+# claimed. Match the usb_interface event instead: by the time RUN
+# fires the kernel has finished its synchronous bind, so pulling the
+# interface off rtl8xxxu (a no-op when it lost the probe race) and
+# writing it into 8188eu's bind node is deterministic. %k is the
+# interface name, substituted by udev itself, so no shell expansion
+# or `$$` escaping is involved.
 #
 # Known RTL8188EUS USB IDs (vendor:product):
 #   0bda:0179  Realtek RTL8188EUS Wireless Adapter
@@ -16,25 +27,17 @@
 
 ACTION!="add", GOTO="rtl8188eus_end"
 SUBSYSTEM!="usb", GOTO="rtl8188eus_end"
-ENV{DEVTYPE}!="usb_device", GOTO="rtl8188eus_end"
+ENV{DEVTYPE}!="usb_interface", GOTO="rtl8188eus_end"
 
-ATTR{idVendor}=="0bda", ATTR{idProduct}=="0179", GOTO="rtl8188eus_swap"
-ATTR{idVendor}=="0bda", ATTR{idProduct}=="8179", GOTO="rtl8188eus_swap"
-ATTR{idVendor}=="0bda", ATTR{idProduct}=="8189", GOTO="rtl8188eus_swap"
-ATTR{idVendor}=="7392", ATTR{idProduct}=="7811", GOTO="rtl8188eus_swap"
-ATTR{idVendor}=="056e", ATTR{idProduct}=="4008", GOTO="rtl8188eus_swap"
+# ATTRS{} walks up to the parent usb_device for the vendor/product IDs.
+ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="0179", GOTO="rtl8188eus_swap"
+ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="8179", GOTO="rtl8188eus_swap"
+ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="8189", GOTO="rtl8188eus_swap"
+ATTRS{idVendor}=="7392", ATTRS{idProduct}=="7811", GOTO="rtl8188eus_swap"
+ATTRS{idVendor}=="056e", ATTRS{idProduct}=="4008", GOTO="rtl8188eus_swap"
 GOTO="rtl8188eus_end"
 
 LABEL="rtl8188eus_swap"
-# Unbind apenas a interface USB específica do rtl8xxxu (não tira o
-# módulo do kernel — outros dongles RTL podem estar conectados ao
-# mesmo tempo); depois carrega 8188eu, que vai bindar pela alias
-# table. ${BUSNUM} e ${DEVNUM} são fornecidos por udev e identificam
-# o device USB sem ambiguidade.
-# udev parses `$` in RUN as its own specifier prefix, so shell variables
-# must be doubled (`$$` -> literal `$`). The previous single-`$` form made
-# udev reject the whole rule ("invalid substitution type"), so the rebind
-# never ran and the dongle was left on rtl8xxxu by luck of probe order.
-RUN+="/usr/bin/sh -c 'busid=$$(basename %p); for drv in /sys/bus/usb/drivers/rtl8xxxu; do [ -e \"$$drv/$$busid\" ] && echo \"$$busid\" > \"$$drv/unbind\" 2>/dev/null; done; modprobe 8188eu 2>/dev/null'"
+RUN+="/usr/bin/sh -c 'modprobe 8188eu; echo %k > /sys/bus/usb/drivers/rtl8xxxu/unbind 2>/dev/null; echo %k > /sys/bus/usb/drivers/8188eu/bind 2>/dev/null; exit 0'"
 
 LABEL="rtl8188eus_end"
