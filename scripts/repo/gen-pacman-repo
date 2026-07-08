@@ -196,7 +196,12 @@ seed_dbpath="${OUT_DIR}/.seed-dbpath"
 rm -rf "${seed_dbpath}" "${OUT_DIR}/.seed-root"
 mkdir -p "${seed_dbpath}/local" "${seed_dbpath}/sync"
 cp "${local_db}" "${seed_dbpath}/sync/${REPO_NAME}.db"
-if fakeroot pacman -U --dbonly --noconfirm \
+# The host pacman runs with the host architecture and signature policy,
+# which rejects our unsigned aarch64 payload; give it a minimal config
+# scoped to this seed operation.
+seed_conf="${seed_dbpath}/pacman.conf"
+printf '[options]\nArchitecture = aarch64\nSigLevel = Never\n' > "${seed_conf}"
+if fakeroot pacman -U --dbonly --noconfirm --config "${seed_conf}" \
         --root "${OUT_DIR}/.seed-root" --dbpath "${seed_dbpath}" \
         --cachedir "${OUT_DIR}" \
         "${OUT_DIR}"/*.pkg.tar.zst >/dev/null 2>&1; then
