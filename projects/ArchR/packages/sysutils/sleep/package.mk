@@ -2,8 +2,8 @@
 # Copyright (C) 2023 JELOS (https://github.com/JustEnoughLinuxOS)
 
 PKG_NAME="sleep"
-PKG_VERSION=""
-PKG_REV="2"
+PKG_VERSION="2.1"
+PKG_REV="1"
 PKG_LICENSE="OSS"
 PKG_DEPENDS_TARGET="systemd"
 PKG_SITE=""
