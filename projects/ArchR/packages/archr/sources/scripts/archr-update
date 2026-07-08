@@ -18,7 +18,13 @@
 . /etc/profile
 
 BRANCH="$(get_setting updates.branch 2>/dev/null)"
-BRANCH="${BRANCH:-stable}"
+# Anything that is not a real channel falls back to stable: the ES
+# settings screen historically stored values like "auto" here, which
+# would point the mirrorlist at a repo tag that does not exist.
+case "${BRANCH}" in
+    stable|next|dev) ;;
+    *) BRANCH="stable" ;;
+esac
 
 # Channel is reflected by a single line in mirrorlist; rewrite it on
 # the fly so the user can switch channels by changing the setting.
@@ -45,8 +51,28 @@ Channel is configured via system.cfg "updates.branch" (stable|next|dev).
 EOF
 }
 
+# A freshly flashed image carries no pacman local db, so pacman has no
+# installed list to compare against and every check reports "no
+# updates". Seed it once from the repo (gen-pacman-repo publishes the
+# matching archr-localdb.tar.gz next to the packages).
+seed_local_db() {
+    [ -n "$(pacman -Q 2>/dev/null | head -1)" ] && return 0
+    echo "Seeding package database (first update on this install)..."
+    mkdir -p /var/lib/pacman
+    if curl -fsSL -o /tmp/archr-localdb.tar.gz \
+        "https://github.com/archr-linux/archr-repo/releases/download/repo-${BRANCH}/archr-localdb.tar.gz"; then
+        tar -xzf /tmp/archr-localdb.tar.gz -C /var/lib/pacman
+        rm -f /tmp/archr-localdb.tar.gz
+        echo "Seeded $(pacman -Q 2>/dev/null | wc -l) package entries."
+    else
+        echo "Could not download the database seed. Check network."
+        return 1
+    fi
+}
+
 cmd_check() {
     write_mirrorlist
+    seed_local_db || return 1
     pacman -Sy --noconfirm >/dev/null 2>&1 || {
         echo "Failed to sync repo metadata. Check network."
         return 1
@@ -62,6 +88,7 @@ cmd_check() {
 
 cmd_update() {
     write_mirrorlist
+    seed_local_db || return 1
     pacman -Syu --noconfirm
 }
 
