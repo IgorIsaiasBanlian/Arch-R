@@ -194,7 +194,7 @@ fi
 echo "gen-pacman-repo: seeding installed (local) db..."
 seed_dbpath="${OUT_DIR}/.seed-dbpath"
 rm -rf "${seed_dbpath}" "${OUT_DIR}/.seed-root"
-mkdir -p "${seed_dbpath}/local" "${seed_dbpath}/sync"
+mkdir -p "${seed_dbpath}/local" "${seed_dbpath}/sync" "${OUT_DIR}/.seed-root"
 cp "${local_db}" "${seed_dbpath}/sync/${REPO_NAME}.db"
 # The host pacman runs with the host architecture and signature policy,
 # which rejects our unsigned aarch64 payload; give it a minimal config
