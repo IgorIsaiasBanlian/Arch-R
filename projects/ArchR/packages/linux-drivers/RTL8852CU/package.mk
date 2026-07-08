@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2026-present ArchR (https://github.com/archr-linux/Arch-R)
+
+PKG_NAME="RTL8852CU"
+PKG_VERSION="1530c38e5b1be6d1e96a31cf4f3602a9c23f2465"
+PKG_LICENSE="GPL"
+PKG_SITE="https://github.com/morrownr/rtl8852cu-20251113"
+PKG_URL="${PKG_SITE}.git"
+PKG_LONGDESC="Realtek RTL8852CU USB WiFi 6 driver. Out of tree because mainline has no USB glue for this chip on 6.12; the in-kernel rtw89 only gains 8852CU USB support past 6.17."
+PKG_TOOLCHAIN="make"
+PKG_IS_KERNEL_PKG="yes"
+
+pre_make_target() {
+  unset LDFLAGS
+}
+
+make_target() {
+  make V=1 \
+       ARCH=${TARGET_KERNEL_ARCH} \
+       KSRC=$(kernel_path) \
+       CROSS_COMPILE=${TARGET_KERNEL_PREFIX} \
+       CONFIG_POWER_SAVING=y
+}
+
+makeinstall_target() {
+  mkdir -p ${INSTALL}/$(get_full_module_dir)/kernel/drivers/net/wireless/
+    cp *.ko ${INSTALL}/$(get_full_module_dir)/kernel/drivers/net/wireless/
+}
