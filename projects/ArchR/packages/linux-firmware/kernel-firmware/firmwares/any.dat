@@ -14,6 +14,8 @@ mt7601u.bin
 mt7662*.bin
 mediatek/mt7662u*.bin
 mediatek/mt7610u.bin
+mediatek/WIFI_MT7961_patch_mcu_1_2_hdr.bin
+mediatek/WIFI_RAM_CODE_MT7961_1.bin
 
 ath6k/AR6004/hw1.?/bdata.bin
 ath9k_htc/*
