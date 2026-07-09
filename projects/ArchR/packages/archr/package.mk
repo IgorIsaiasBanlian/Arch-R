@@ -121,6 +121,17 @@ EOF
   # final dir so it materializes on first launch.
   mkdir -p ${INSTALL}/opt
   ln -sf /storage/jdk                      ${INSTALL}/opt/jdk
+
+  # Scripts and alpm hooks belong in makeinstall_target, NOT post_install:
+  # post_install writes straight into the assembled image, so anything
+  # done there never lands in the pacman package and stays flash-only.
+  # These (archr-update, flash-sync, the depmod hook, wifictl, ...) must
+  # reach users through `pacman -Syu` too, so they go here.
+  mkdir -p ${INSTALL}/usr/bin
+  cp ${PKG_DIR}/sources/scripts/* ${INSTALL}/usr/bin
+  chmod 0755 ${INSTALL}/usr/bin/* 2>/dev/null ||:
+  mkdir -p ${INSTALL}/etc/pacman.d/hooks
+  cp ${PKG_DIR}/sources/pacman-hooks/*.hook ${INSTALL}/etc/pacman.d/hooks
 }
 
 post_install() {
@@ -142,15 +153,6 @@ post_install() {
 EOF
   cp ${PKG_DIR}/sources/motd ${INSTALL}/etc
   cat ${INSTALL}/etc/issue >> ${INSTALL}/etc/motd
-
-  cp ${PKG_DIR}/sources/scripts/* ${INSTALL}/usr/bin
-  chmod 0755 ${INSTALL}/usr/bin/* 2>/dev/null ||:
-
-  # alpm hooks (pacman.conf points HookDir at /etc/pacman.d/hooks): the
-  # flash-sync hook keeps the FAT boot partition in step with kernel or
-  # DTB updates delivered through pacman.
-  mkdir -p ${INSTALL}/etc/pacman.d/hooks
-  cp ${PKG_DIR}/sources/pacman-hooks/*.hook ${INSTALL}/etc/pacman.d/hooks
 
   ### Install man pages
   if [ -d "${PKG_DIR}/sources/man" ]; then
