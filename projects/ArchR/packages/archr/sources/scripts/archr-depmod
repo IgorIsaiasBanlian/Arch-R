@@ -1,0 +1,21 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2026-present ArchR (https://github.com/archr-linux/Arch-R)
+#
+# Regenerate the module dependency index over the FULL module tree after
+# a pacman transaction touches kernel modules. The linux package used to
+# ship the modules.dep generated at kernel build time, which predates
+# every out-of-tree module (joypad, WiFi drivers); installing it wiped
+# them from the index and the console came up with dead input and no
+# WiFi. The repo no longer ships those index files, and this hook keeps
+# the index honest on the device no matter what changed.
+set -u
+rc=0
+for verdir in /usr/lib/kernel-overlays/*/lib/modules/*/; do
+  [ -d "${verdir}kernel" ] || continue
+  base="${verdir%/lib/modules/*}"
+  ver="$(basename "${verdir}")"
+  echo "archr-depmod: indexing ${ver} under ${base}"
+  depmod -a -b "${base}" "${ver}" || rc=1
+done
+exit ${rc}

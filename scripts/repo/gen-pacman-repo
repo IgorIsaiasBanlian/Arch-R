@@ -144,7 +144,25 @@ EOF
             # /.image on every kernel update for nothing.
             find . -mindepth 1 -maxdepth 1 -not -name '.PKGINFO' -not -name '.image' -printf '%P\n'
         } > "${filelist}"
-        tar --zstd -cf "${outfile}" --owner=0 --group=0 -T "${filelist}"
+        # The depmod-generated indexes are stale by construction inside a
+        # package (the kernel builds them before any out-of-tree module
+        # exists); shipping them wiped the joypad and WiFi drivers from
+        # modules.dep on every linux update. The device rebuilds them via
+        # the archr-depmod hook; modules.builtin*/order stay (kernel-owned
+        # depmod inputs).
+        tar --zstd -cf "${outfile}" --owner=0 --group=0 \
+            --exclude='*/modules/*/modules.dep' \
+            --exclude='*/modules/*/modules.dep.bin' \
+            --exclude='*/modules/*/modules.alias' \
+            --exclude='*/modules/*/modules.alias.bin' \
+            --exclude='*/modules/*/modules.symbols' \
+            --exclude='*/modules/*/modules.symbols.bin' \
+            --exclude='*/modules/*/modules.devname' \
+            --exclude='*/modules/*/modules.softdep' \
+            --exclude='*/modules/*/modules.weakdep' \
+            --exclude='*/modules/*/modules.builtin.bin' \
+            --exclude='*/modules/*/modules.builtin.alias.bin' \
+            -T "${filelist}"
         rm -f "${filelist}"
     )
     rm -f "${pkginfo}"
