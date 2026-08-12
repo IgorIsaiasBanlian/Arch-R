@@ -17,16 +17,43 @@ case "$1" in
   *)
     DTB=$(cat /sys/firmware/devicetree/base/archr,device_switch/$1 | tr -d '\0').dtb
     [[ $? -eq 0 ]] || { echo "Cannot resolve dtb name for $1" >&2; exit 2; }
-    [ -f "/flash/${DTB}" ] || { echo "dtb not found: /flash/${DTB}"; exit 3; }
+
+    # 2.x images ship DTBs in /flash/dtbs (extlinux FDTDIR /dtbs/); the old
+    # JELOS layout kept them in the FAT root. Accept both so the switch works
+    # on either layout instead of silently failing (exit 3 was being swallowed
+    # by the ES menu, which showed the success popup anyway).
+    if [ -f "/flash/dtbs/${DTB}" ]; then
+      DTBPATH="/dtbs/${DTB}"
+    elif [ -f "/flash/${DTB}" ]; then
+      DTBPATH="/${DTB}"
+    else
+      echo "dtb not found: /flash/dtbs/${DTB} nor /flash/${DTB}" >&2
+      exit 3
+    fi
 
     mount -o remount,rw /flash
 
     [ -f ${EXTLCONFBAK} ] || cp ${EXTLCONF} ${EXTLCONFBAK}
     grep -q '^ *FDT ' ${EXTLCONF} || sed -i 's|^\(.* FDTDIR .*$\)|\1\n  FDT todo.dtb|' ${EXTLCONF}
-    sed -i "s|^ *FDT .*$|  FDT /${DTB}|" ${EXTLCONF}
+    sed -i "s|^ *FDT .*$|  FDT ${DTBPATH}|" ${EXTLCONF}
 
     echo $1 > /flash/device.name
-    rm -r /storage/remappings/*
+
+    # Remappings are per-device (different button layouts), so they must not
+    # leak across a switch — but deleting them outright is hostile. Park the
+    # current device's set in a per-device backup and, if the target device
+    # already has one from a previous switch, bring it back.
+    CURRENT=$(cat /sys/firmware/devicetree/base/archr,device_switch/this | tr -d '\0')
+    if [ -n "$(ls -A /storage/remappings 2>/dev/null)" ]; then
+      rm -rf "/storage/remappings.bak-${CURRENT}"
+      mkdir -p "/storage/remappings.bak-${CURRENT}"
+      mv /storage/remappings/* "/storage/remappings.bak-${CURRENT}/"
+    fi
+    if [ -n "$(ls -A "/storage/remappings.bak-$1" 2>/dev/null)" ]; then
+      mkdir -p /storage/remappings
+      mv "/storage/remappings.bak-$1"/* /storage/remappings/
+      rmdir "/storage/remappings.bak-$1" 2>/dev/null
+    fi
 
     sync
     mount -o remount,ro /flash

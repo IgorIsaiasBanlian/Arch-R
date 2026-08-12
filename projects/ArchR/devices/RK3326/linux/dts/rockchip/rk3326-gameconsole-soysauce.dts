@@ -209,7 +209,14 @@
 	enable-gpios = <&gpio1 RK_PC2 GPIO_ACTIVE_HIGH>;
 };
 
-/* Soysauce uses GPIO3_PB6 for BTN-A, not sdio card detect */
+/*
+ * Soysauce uses GPIO3_PB6 for BTN-A, not sdio card detect. With the cd line
+ * gone, non-removable is the only probe strategy that neither polls forever
+ * (broken-cd drains the battery) nor breaks the RK915 wifi variants (a
+ * disabled node would need every deployed overlay to flip it back on). The
+ * price is one harmless "mmc0: Failed to initialize a non-removable card"
+ * line at boot on dongle-wifi boards. Do not "fix" it.
+ */
 &sdio {
 	/delete-property/ cd-gpios;
 	non-removable;

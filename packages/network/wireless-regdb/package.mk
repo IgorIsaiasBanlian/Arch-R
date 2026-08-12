@@ -17,3 +17,13 @@ makeinstall_target() {
   mkdir -p ${FW_TARGET_DIR}
     cp ${PKG_BUILD}/regulatory.db ${PKG_BUILD}/regulatory.db.p7s ${FW_TARGET_DIR}
 }
+
+makeinstall_init() {
+  # cfg80211 is builtin and requests regulatory.db before kernel-overlays-setup
+  # populates /run/kernel-overlays/firmware; a failed load is cached forever
+  # (regdb = ERR_PTR in net/wireless/reg.c), leaving the world domain active
+  # for the whole session. Ship the db in the initramfs so the very first
+  # request succeeds.
+  mkdir -p ${INSTALL}/usr/lib/firmware
+    cp ${PKG_BUILD}/regulatory.db ${PKG_BUILD}/regulatory.db.p7s ${INSTALL}/usr/lib/firmware
+}

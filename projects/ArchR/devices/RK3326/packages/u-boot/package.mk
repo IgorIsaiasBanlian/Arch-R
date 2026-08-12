@@ -25,6 +25,7 @@ pre_make_target() {
   PKG_BL31="${PKG_RKBIN}/bin/rk33/rk3326_bl31_v1.34.elf"
   PKG_DDR_BIN="${PKG_RKBIN}/bin/rk33/rk3326_ddr_333MHz_v2.11.bin"
   PKG_DDR_BIN_UART5="${PKG_RKBIN}/rk3326_ddr_uart5.bin"
+  PKG_DDR_BIN_FALLBACK="${PKG_RKBIN}/rk3326_ddr_fallback333.bin"
 }
 
 make_target() {
@@ -42,6 +43,12 @@ make_target() {
         u-boot-dtb.bin
   . ${RKHELPER}
   mv uboot.bin uboot.bin.default
+
+  # Same U-Boot, stock 333MHz TPL: the DDR failsafe loader for boards whose
+  # DRAM does not train at the default 666MHz cold init (issue #31). Written
+  # to disk over the same sectors as the default loader (dd seek=64).
+  PKG_DDR_BIN=${PKG_DDR_BIN_FALLBACK} . ${RKHELPER}
+  mv uboot.bin uboot.bin.ddr333
 
   ./scripts/config --set-val CONFIG_DEBUG_UART_BASE 0xFF178000
   ./scripts/config --set-str CONFIG_DEVICE_TREE_INCLUDES "rk3326-odroid-go2-emmc.dtsi rk3326-odroid-go2-uart5.dtsi"
@@ -90,6 +97,7 @@ makeinstall_target() {
 
   cp -av uboot.bin.default "${INSTALL}/usr/share/bootloader/clone_uboot.bin"
   cp -av uboot.bin.uart5 "${INSTALL}/usr/share/bootloader/clone_uboot.bin.uart5"
+  cp -av uboot.bin.ddr333 "${INSTALL}/usr/share/bootloader/clone_uboot.bin.ddr333"
 
   find_dir_path config/extlinux || exit 3
   cp -av ${FOUND_PATH} "${INSTALL}/usr/share/bootloader/"

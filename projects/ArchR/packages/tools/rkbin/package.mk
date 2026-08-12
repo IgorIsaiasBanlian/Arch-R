@@ -43,6 +43,12 @@ post_unpack() {
   # powersave floor) if a board genuinely fails at 666.
   RK3326_DDR_FREQ="${RK3326_DDR_FREQ:-666}"
   DDR_BIN="$(ls ${PKG_BUILD}/bin/rk33/rk3326_ddr_333MHz_*.bin)"
+
+  # Keep an untouched copy of the stock 333MHz TPL before retuning. Some
+  # boards fail DDR training at 666 (clone rev 2547, issue #31) and the
+  # hardware bisect showed stock 333 boots everything — this copy becomes
+  # the "DDR failsafe" loader assembled by the u-boot package.
+  cp ${DDR_BIN} ${PKG_BUILD}/rk3326_ddr_fallback333.bin
   ${PKG_BUILD}/tools/ddrbin_tool.py rk3326 -g ${PKG_BUILD}/rk3326_ddr_freq.txt ${DDR_BIN}
   sed -i -E "s#^(lp2_freq|ddr3_freq|lp3_freq|ddr4_freq|lp4_freq)=.*#\1=${RK3326_DDR_FREQ}#" ${PKG_BUILD}/rk3326_ddr_freq.txt
   ${PKG_BUILD}/tools/ddrbin_tool.py rk3326 ${PKG_BUILD}/rk3326_ddr_freq.txt ${DDR_BIN} >/dev/null
